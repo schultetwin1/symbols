@@ -1,12 +1,16 @@
-use log::{trace, debug, info, warn, error};
+use log::{trace, /*debug,*/ info, warn, error};
 use std::fs::File;
 use std::io::Read;
 use walkdir::WalkDir;
 
+const APP_AUTHOR: &str = "dbgsrv";
+const APP_NAME: &str = "dbg";
+
 fn main() {
-    let matches = clap::App::new(env!("CARGO_PKG_NAME"))
+    let matches = clap::App::new(APP_NAME)
         .version(env!("CARGO_PKG_VERSION"))
         .about("CLI tool for dbgsrv")
+        .author(APP_AUTHOR)
         .arg(clap::Arg::with_name("v")
             .short("v")
             .multiple(true)
@@ -70,17 +74,31 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
 
     // Files to upload
     for file in &files {
-        println!("{}", file.path().display());
+        println!("uploading {}", file.path().display());
+        let mut file = File::open(file.path()).unwrap();
+
+        let mut buffer = Vec::new();
+
+        file.read_to_end(&mut buffer).unwrap();
+
+        let mut response = reqwest::Client::new()
+            .post("http://localhost:7071/api/upload")
+            .body(buffer)
+            .header("Content-Type", "application/octet-stream")
+            .send()
+            .unwrap();
+
+        println!("{}", response.text().unwrap());
+
     }
 }
 
 fn is_debug_info_file(path: &std::path::Path) -> bool {
-    let path_str = path.to_str().unwrap_or("*INVALID PATH*");
-    trace!("Inspecting file {}", path_str);
+    trace!("Inspecting file {}", path.display());
     let file = match File::open(path) {
         Ok(file) => file,
         Err(err) => {
-            warn!("Unable to open file {}", path_str);
+            warn!("Unable to open file {}", path.display());
             warn!("Error: {}", err);
             return false;
         },
@@ -91,7 +109,7 @@ fn is_debug_info_file(path: &std::path::Path) -> bool {
         match pdb.pdb_information() {
             Ok(_pdb_info) => return true,
             Err(err) => {
-                error!("Unable to read pdb info from {}", path_str);
+                error!("Unable to read pdb info from {}", path.display());
                 error!("Error {}", err);
             }
         }
@@ -104,7 +122,7 @@ fn is_debug_info_file(path: &std::path::Path) -> bool {
     match file.read_to_end(&mut buffer) {
         Ok(_) => (),
         Err(e) => {
-            warn!("Unable to read to end of file {}", path_str);
+            warn!("Unable to read to end of file {}", path.display());
             warn!("Error: {}", e);
             return false;
         }
