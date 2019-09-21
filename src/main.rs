@@ -75,18 +75,25 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
         1
     };
 
-    let files = WalkDir::new(path)
-        .max_depth(max_depth)
-        .into_iter()
-        .filter_map(|v| v.ok())
-        .filter(|x| x.path().is_file())
-        .filter(|x| is_debug_info_file(x.path()))
-        .collect::<Vec<walkdir::DirEntry>>();
+    let files = if path.is_dir() {
+        WalkDir::new(path)
+            .max_depth(max_depth)
+            .into_iter()
+            .filter_map(|v| v.ok())
+            .filter(|x| x.path().is_file())
+            .filter(|x| is_debug_info_file(x.path()))
+            .map(|x| x.into_path())
+            .collect::<Vec<std::path::PathBuf>>()
+    } else {
+        let mut files = Vec::new();
+        files.push(path.to_path_buf());
+        files
+    };
 
     // Files to upload
-    for file in &files {
-        println!("uploading {}", file.path().display());
-        let mut file = File::open(file.path()).unwrap();
+    for file in files {
+        println!("uploading {}", file.display());
+        let mut file = File::open(file).unwrap();
 
         let mut buffer = Vec::new();
 
@@ -176,15 +183,13 @@ fn mach_has_uuid(mach: &goblin::mach::Mach) -> bool {
     match mach {
         // Currently fat arch are not supported
         goblin::mach::Mach::Fat(_multiarch) => false,
-        goblin::mach::Mach::Binary(macho) => {
-            macho
-                .load_commands
-                .iter()
-                .find(|&x| match x.command {
-                    goblin::mach::load_command::CommandVariant::Uuid(_) => true,
-                    _ => false,
-                })
-                .is_some()
-        }
+        goblin::mach::Mach::Binary(macho) => macho
+            .load_commands
+            .iter()
+            .find(|&x| match x.command {
+                goblin::mach::load_command::CommandVariant::Uuid(_) => true,
+                _ => false,
+            })
+            .is_some(),
     }
 }
