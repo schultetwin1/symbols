@@ -1,4 +1,4 @@
-use log::{trace, /*debug,*/ info, warn, error};
+use log::{error, /*debug,*/ info, trace, warn};
 use std::fs::File;
 use std::io::Read;
 use walkdir::WalkDir;
@@ -11,20 +11,28 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .about("CLI tool for dbgsrv")
         .author(APP_AUTHOR)
-        .arg(clap::Arg::with_name("v")
-            .short("v")
-            .multiple(true)
-            .help("Sets the level of verbosity"))
-        .subcommand(clap::SubCommand::with_name("upload")
-            .about("Upload the debug info files to a debug server")
-            .arg(clap::Arg::with_name("PATH")
-                .help("Path to search for debug info files")
-                .required(true)
-                .index(1))
-            .arg(clap::Arg::with_name("recursive")
-                .short("r")
-                .long("recursive")
-                .help("Search path recursively")))
+        .arg(
+            clap::Arg::with_name("v")
+                .short("v")
+                .multiple(true)
+                .help("Sets the level of verbosity"),
+        )
+        .subcommand(
+            clap::SubCommand::with_name("upload")
+                .about("Upload the debug info files to a debug server")
+                .arg(
+                    clap::Arg::with_name("PATH")
+                        .help("Path to search for debug info files")
+                        .required(true)
+                        .index(1),
+                )
+                .arg(
+                    clap::Arg::with_name("recursive")
+                        .short("r")
+                        .long("recursive")
+                        .help("Search path recursively"),
+                ),
+        )
         .get_matches();
 
     initialize_logger(&matches);
@@ -54,7 +62,10 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
     let path = std::path::Path::new(matches.value_of("PATH").unwrap());
 
     if !path.exists() {
-        println!("Path \"{}\" does not exist", path.to_str().unwrap_or("*INVALID PATH*"));
+        println!(
+            "Path \"{}\" does not exist",
+            path.to_str().unwrap_or("*INVALID PATH*")
+        );
         return;
     }
 
@@ -89,7 +100,6 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
             .unwrap();
 
         println!("{}", response.text().unwrap());
-
     }
 }
 
@@ -101,7 +111,7 @@ fn is_debug_info_file(path: &std::path::Path) -> bool {
             warn!("Unable to open file {}", path.display());
             warn!("Error: {}", err);
             return false;
-        },
+        }
     };
 
     // Test if its a PDB
@@ -134,9 +144,9 @@ fn is_debug_info_file(path: &std::path::Path) -> bool {
             goblin::Object::PE(pe) => return pe_has_pdb_info(&pe),
             goblin::Object::Mach(mach) => return mach_has_uuid(&mach),
             goblin::Object::Archive(_archive) => return false,
-            goblin::Object::Unknown(_magic) => return false
+            goblin::Object::Unknown(_magic) => return false,
         },
-        Err(_) => return false
+        Err(_) => return false,
     };
 }
 
@@ -167,10 +177,14 @@ fn mach_has_uuid(mach: &goblin::mach::Mach) -> bool {
         // Currently fat arch are not supported
         goblin::mach::Mach::Fat(_multiarch) => return false,
         goblin::mach::Mach::Binary(macho) => {
-            return macho.load_commands.iter().find(|&x| match x.command {
-                goblin::mach::load_command::CommandVariant::Uuid(_) => true,
-                _ => false,
-            }).is_some();
+            return macho
+                .load_commands
+                .iter()
+                .find(|&x| match x.command {
+                    goblin::mach::load_command::CommandVariant::Uuid(_) => true,
+                    _ => false,
+                })
+                .is_some();
         }
     };
 }
