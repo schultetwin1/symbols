@@ -183,13 +183,9 @@ fn mach_has_uuid(mach: &goblin::mach::Mach) -> bool {
     match mach {
         // Currently fat arch are not supported
         goblin::mach::Mach::Fat(_multiarch) => false,
-        goblin::mach::Mach::Binary(macho) => macho
-            .load_commands
-            .iter()
-            .find(|&x| match x.command {
-                goblin::mach::load_command::CommandVariant::Uuid(_) => true,
-                _ => false,
-            })
-            .is_some(),
+        goblin::mach::Mach::Binary(macho) => macho.load_commands.iter().any(|x| match x.command {
+            goblin::mach::load_command::CommandVariant::Uuid(_) => true,
+            _ => false,
+        }),
     }
 }
