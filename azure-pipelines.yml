@@ -10,10 +10,32 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
 
+# Install rust on *nix
 - script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    set -e
+    curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+  displayName: "Install rust (*nix)"
+  condition: not(eq(variables['Agent.OS'], 'Windows_NT'))
+
+# Install rust on Windows
+- script: |
+    curl -sSf -o rustup-init.exe https://win.rustup.rs
+    rustup-init.exe -y --default-toolchain stable
+    set PATH=%PATH%;%USERPROFILE%\.cargo\bin
+    echo "##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin"
+  displayName: "Install rust (windows)"
+  condition: eq(variables['Agent.OS'], 'Windows_NT')
+
+# Set the correct toolchain
+- script: |
+    rustup default stable
+    rustup update stable
+  displayName: "Set correct Rust version"
+
+# Output rust environment
+- script: |
+    rustc --version
+    cargo --version
+    rustup --version
+  displayName: Check installed rust version
