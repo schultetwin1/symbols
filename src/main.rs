@@ -140,14 +140,14 @@ fn is_debug_info_file(path: &std::path::Path) -> bool {
 
     match goblin::Object::parse(&buffer) {
         Ok(object) => match object {
-            goblin::Object::Elf(elf) => return elf_has_buildid(&elf, &buffer),
-            goblin::Object::PE(pe) => return pe_has_pdb_info(&pe),
-            goblin::Object::Mach(mach) => return mach_has_uuid(&mach),
-            goblin::Object::Archive(_archive) => return false,
-            goblin::Object::Unknown(_magic) => return false,
+            goblin::Object::Elf(elf) => elf_has_buildid(&elf, &buffer),
+            goblin::Object::PE(pe) => pe_has_pdb_info(&pe),
+            goblin::Object::Mach(mach) => mach_has_uuid(&mach),
+            goblin::Object::Archive(_archive) => false,
+            goblin::Object::Unknown(_magic) => false,
         },
-        Err(_) => return false,
-    };
+        Err(_) => false,
+    }
 }
 
 fn elf_has_buildid(elf: &goblin::elf::Elf, data: &[u8]) -> bool {
@@ -175,16 +175,16 @@ fn pe_has_pdb_info(pe: &goblin::pe::PE) -> bool {
 fn mach_has_uuid(mach: &goblin::mach::Mach) -> bool {
     match mach {
         // Currently fat arch are not supported
-        goblin::mach::Mach::Fat(_multiarch) => return false,
+        goblin::mach::Mach::Fat(_multiarch) => false,
         goblin::mach::Mach::Binary(macho) => {
-            return macho
+            macho
                 .load_commands
                 .iter()
                 .find(|&x| match x.command {
                     goblin::mach::load_command::CommandVariant::Uuid(_) => true,
                     _ => false,
                 })
-                .is_some();
+                .is_some()
         }
-    };
+    }
 }
