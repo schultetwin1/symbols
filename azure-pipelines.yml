@@ -15,8 +15,6 @@ jobs:
         image: 'ubuntu-latest'
       windows:
         image: 'windows-latest'
-      mac:
-        image: 'macOS-latest'
     maxParallel: 10
   pool:
     vmImage: $(image)
