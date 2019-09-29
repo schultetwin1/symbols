@@ -42,6 +42,7 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
         }
     };
 
+    drop(buffer);
     result
 }
 
