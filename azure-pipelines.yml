@@ -6,37 +6,51 @@
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
+jobs:
+- job: build
+  displayName: Build
+  strategy:
+    matrix:
+      linux:
+        image: 'ubuntu-latest'
+      windows:
+        image: 'windows-latest'
+      mac:
+        image: 'macOS-latest'
+    maxParallel: 10
+  pool:
+    vmImage: $(image)
+  workspace:
+    clean: all
 
-steps:
+  steps:
 
-# Set the correct toolchain
-- script: |
-    rustup default stable
-    rustup update stable
-  displayName: "Set correct Rust version"
+  # Set the correct toolchain
+  - script: |
+      rustup default stable
+      rustup update stable
+    displayName: "Set correct Rust version"
 
-# Install components
-- script: |
-    rustup component add rustfmt --toolchain stable
-    rustup component add clippy --toolchain stable
+  # Install components
+  - script: |
+      rustup component add rustfmt --toolchain stable
+      rustup component add clippy --toolchain stable
 
-# Output rust environment
-- script: |
-    rustc --version
-    cargo --version
-    rustup --version
-  displayName: Check installed rust version
+  # Output rust environment
+  - script: |
+      rustc --version
+      cargo --version
+      rustup --version
+    displayName: Check installed rust version
 
-# Format check
-- script: cargo fmt --all -- --check
-  displayName: Check formatting
+  # Format check
+  - script: cargo fmt --all -- --check
+    displayName: Check formatting
 
-# Clippy check
-- script: cargo clippy -- -D warnings
-  displayName: Check Clippy
+  # Clippy check
+  - script: cargo clippy -- -D warnings
+    displayName: Check Clippy
 
-# Build and test
-- script: cargo test
-  displayName: Build and Test
+  # Build and test
+  - script: cargo test
+    displayName: Build and Test
