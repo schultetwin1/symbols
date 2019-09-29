@@ -1,7 +1,8 @@
-use log::{error, /*debug,*/ info, trace, warn};
-use std::fs::File;
-use std::io::Read;
+use log::{/*error,*/ /*debug,*/ info, trace, warn};
+use std::process;
 use walkdir::WalkDir;
+
+mod symstore;
 
 const APP_AUTHOR: &str = "dbgsrv";
 const APP_NAME: &str = "dbg";
@@ -66,7 +67,7 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
             "Path \"{}\" does not exist",
             path.to_str().unwrap_or("*INVALID PATH*")
         );
-        return;
+        process::exit(1);
     }
 
     let max_depth = if matches.is_present("recursive") {
@@ -81,7 +82,6 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
             .into_iter()
             .filter_map(|v| v.ok())
             .filter(|x| x.path().is_file())
-            .filter(|x| is_debug_info_file(x.path()))
             .map(|x| x.into_path())
             .collect::<Vec<std::path::PathBuf>>()
     } else {
@@ -92,100 +92,17 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
 
     // Files to upload
     for file in files {
-        println!("uploading {}", file.display());
-        let mut file = File::open(file).unwrap();
-
-        let mut buffer = Vec::new();
-
-        file.read_to_end(&mut buffer).unwrap();
-
-        let mut response = reqwest::Client::new()
-            .post("http://localhost:7071/api/upload")
-            .body(buffer)
-            .header("Content-Type", "application/octet-stream")
-            .send()
-            .unwrap();
-
-        println!("{}", response.text().unwrap());
-    }
-}
-
-fn is_debug_info_file(path: &std::path::Path) -> bool {
-    trace!("Inspecting file {}", path.display());
-    let file = match File::open(path) {
-        Ok(file) => file,
-        Err(err) => {
-            warn!("Unable to open file {}", path.display());
-            warn!("Error: {}", err);
-            return false;
-        }
-    };
-
-    // Test if its a PDB
-    if let Ok(mut pdb) = pdb::PDB::open(file) {
-        match pdb.pdb_information() {
-            Ok(_pdb_info) => return true,
-            Err(err) => {
-                error!("Unable to read pdb info from {}", path.display());
-                error!("Error {}", err);
-            }
-        }
-    }
-
-    let mut file = File::open(path).unwrap();
-
-    let mut buffer = Vec::new();
-
-    match file.read_to_end(&mut buffer) {
-        Ok(_) => (),
-        Err(e) => {
-            warn!("Unable to read to end of file {}", path.display());
-            warn!("Error: {}", e);
-            return false;
-        }
-    };
-
-    match goblin::Object::parse(&buffer) {
-        Ok(object) => match object {
-            goblin::Object::Elf(elf) => elf_has_buildid(&elf, &buffer),
-            goblin::Object::PE(pe) => pe_has_pdb_info(&pe),
-            goblin::Object::Mach(mach) => mach_has_uuid(&mach),
-            goblin::Object::Archive(_archive) => false,
-            goblin::Object::Unknown(_magic) => false,
-        },
-        Err(_) => false,
-    }
-}
-
-fn elf_has_buildid(elf: &goblin::elf::Elf, data: &[u8]) -> bool {
-    if let Some(notes) = elf.iter_note_headers(data) {
-        for note in notes {
-            if let Ok(note) = note {
-                if note.n_type == goblin::elf::note::NT_GNU_BUILD_ID {
-                    return true;
+        match symstore::file::file_to_key(&file) {
+            Ok(key) => {
+                if let Some(key) = key {
+                    println!("uploading {} -> {}", file.display(), key);
+                } else {
+                    warn!("{} has no key", file.display());
                 }
             }
+            Err(_err) => {
+                println!("Error parsing: {}", file.display());
+            }
         }
-    }
-    false
-}
-
-fn pe_has_pdb_info(pe: &goblin::pe::PE) -> bool {
-    if let Some(debug_data) = pe.debug_data {
-        if let Some(_debug_info) = debug_data.codeview_pdb70_debug_info {
-            return true;
-        }
-    }
-    false
-}
-
-fn mach_has_uuid(mach: &goblin::mach::Mach) -> bool {
-    match mach {
-        // Currently fat arch are not supported
-        goblin::mach::Mach::Fat(_multiarch) => false,
-        goblin::mach::Mach::Binary(macho) => macho.load_commands.iter().any(|x| match x.command {
-            goblin::mach::load_command::CommandVariant::Uuid(_) => true,
-            _ => false,
-        }),
     }
 }
