@@ -1,47 +1,60 @@
 use log::{/*error,*/ /*debug,*/ info, trace, warn};
-use std::process;
-use walkdir::WalkDir;
+use ignore::WalkBuilder;
+use anyhow::{anyhow, Result};
+
+use std::io::Read;
 
 mod symstore;
+mod args;
 
-const APP_AUTHOR: &str = "dbgsrv";
-const APP_NAME: &str = "dbg";
+#[derive(Debug, PartialEq, Eq)]
+enum FileType {
+    Elf,
+    PE,
+    PDB,
+    /* MachO, */
+    Unknown
+}
 
-fn main() {
-    let matches = clap::App::new(APP_NAME)
-        .version(env!("CARGO_PKG_VERSION"))
-        .about("CLI tool for dbgsrv")
-        .author(APP_AUTHOR)
-        .arg(
-            clap::Arg::with_name("v")
-                .short("v")
-                .multiple(true)
-                .help("Sets the level of verbosity"),
-        )
-        .subcommand(
-            clap::SubCommand::with_name("upload")
-                .about("Upload the debug info files to a debug server")
-                .arg(
-                    clap::Arg::with_name("PATH")
-                        .help("Path to search for debug info files")
-                        .required(true)
-                        .index(1),
-                )
-                .arg(
-                    clap::Arg::with_name("recursive")
-                        .short("r")
-                        .long("recursive")
-                        .help("Search path recursively"),
-                ),
-        )
-        .get_matches();
+const ELF_MAGIC_BYTES: &[u8; 4] = b"\x7FELF";
+const PDB_MAGIC_BYTES: &[u8; 28] = b"Microsoft C / C++ MSF 7.00\r\n";
 
+fn is_object_file(path: &std::path::Path) -> std::io::Result<FileType> {
+    let mut file = std::fs::OpenOptions::new()
+        .write(false)
+        .read(true)
+        .open(path)?;
+
+    let mut magic = [0u8; 256];
+
+    if (file.metadata().unwrap().len() as usize) < magic.len() {
+        return Ok(FileType::Unknown);
+    }
+
+    file.read_exact(&mut magic)?;
+
+    if magic.starts_with(ELF_MAGIC_BYTES) {
+        Ok(FileType::Elf)
+    } else if magic [0..2] == b"MZ"[..] || magic[0..2] == b"ZM"[..] {
+        Ok(FileType::PE)
+    } else if magic.starts_with(PDB_MAGIC_BYTES) {
+        Ok(FileType::PDB)
+    } else {
+        Ok(FileType::Unknown)
+    }
+
+}
+
+fn main() -> Result<()> {
+    let matches = args::parse_args();
     initialize_logger(&matches);
     trace!("logger initialized");
 
-    if let Some(matches) = matches.subcommand_matches("upload") {
+    if let Some(matches) = matches.subcommand_matches(args::UPLOAD_SUBCOMMAND) {
         info!("Upload subcommand");
-        upload_dbg_info(matches);
+        upload_dbg_info(matches)
+    } else {
+        Ok(())
     }
 }
 
@@ -49,7 +62,7 @@ fn initialize_logger(matches: &clap::ArgMatches) {
     // Vary the output based on how many times the user used the "verbose" flag
     // (i.e. 'myprog -v -v -v' or 'myprog -vvv' vs 'myprog -v'
     let mut logger = pretty_env_logger::formatted_builder();
-    let logger = match matches.occurrences_of("v") {
+    let logger = match matches.occurrences_of(args::VERBOSITY_ARG) {
         0 => logger.filter_level(log::LevelFilter::Error),
         1 => logger.filter_level(log::LevelFilter::Warn),
         2 => logger.filter_level(log::LevelFilter::Info),
@@ -59,29 +72,28 @@ fn initialize_logger(matches: &clap::ArgMatches) {
     logger.init();
 }
 
-fn upload_dbg_info(matches: &clap::ArgMatches) {
-    let path = std::path::Path::new(matches.value_of("PATH").unwrap());
+fn upload_dbg_info(matches: &clap::ArgMatches) -> Result<()> {
+    let path = std::path::Path::new(matches.value_of(args::UPLOAD_PATH_ARG).unwrap());
 
     if !path.exists() {
-        println!(
-            "Path \"{}\" does not exist",
-            path.to_str().unwrap_or("*INVALID PATH*")
-        );
-        process::exit(1);
+        return Err(anyhow!("Path \"{}\" doest not exists", path.display()));
     }
 
-    let max_depth = if matches.is_present("recursive") {
-        std::usize::MAX
+    let max_depth = if matches.is_present(args::UPLOAD_RECUSRIVE_ARG) {
+        None
     } else {
-        1
+        Some(1)
     };
 
     let files = if path.is_dir() {
-        WalkDir::new(path)
+        WalkBuilder::new(path)
             .max_depth(max_depth)
+            .git_ignore(false)
+            .build()
             .into_iter()
             .filter_map(|v| v.ok())
             .filter(|x| x.path().is_file())
+            .filter(|x| is_object_file(x.path()).unwrap_or(FileType::Unknown) != FileType::Unknown)
             .map(|x| x.into_path())
             .collect::<Vec<std::path::PathBuf>>()
     } else {
@@ -105,4 +117,6 @@ fn upload_dbg_info(matches: &clap::ArgMatches) {
             }
         }
     }
+
+    Ok(())
 }
