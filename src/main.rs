@@ -1,9 +1,10 @@
 use log::{/*error,*/ /*debug,*/ info, trace, warn};
 use ignore::WalkBuilder;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 
 use std::io::Read;
 
+mod config;
 mod symstore;
 mod args;
 
@@ -46,13 +47,36 @@ fn is_object_file(path: &std::path::Path) -> std::io::Result<FileType> {
 }
 
 fn main() -> Result<()> {
+    let xdg_dirs = xdg::BaseDirectories::new().context("Unable to find home directory")?;
+    let mut config_path = xdg_dirs.find_config_file("symbols.toml");
+    let mut config = config::Config::default();
     let matches = args::parse_args();
     initialize_logger(&matches);
     trace!("logger initialized");
 
+    if let Some(path) = matches.value_of(args::CONFIG_FILE_ARG) {
+        config_path = Some(std::path::PathBuf::from(path));
+    }
+
+    if let Some(path) = config_path {
+        config = config::read_config(&path).context(format!("Failed to read config at '{}'", path.display()))?;
+    }
+
+
     if let Some(matches) = matches.subcommand_matches(args::UPLOAD_SUBCOMMAND) {
         info!("Upload subcommand");
-        upload_dbg_info(matches)
+        if let Some(server) = config.servers.iter().filter(|server| server.access == config::RemoteStorageAccess::ReadWrite).next() {
+            match &server.storage_type {
+                config::RemoteStorageType::HTTP(c) => {
+                    return Err(anyhow!("Upload to HTTP server ({}) not yet implemented!", c.url))
+                },
+                config::RemoteStorageType::S3(c) => {
+                    upload_to_s3(matches, c)
+                }
+            }
+        } else {
+            Err(anyhow!("No server specified in config for upload"))
+        }
     } else {
         Ok(())
     }
@@ -72,7 +96,7 @@ fn initialize_logger(matches: &clap::ArgMatches) {
     logger.init();
 }
 
-fn upload_dbg_info(matches: &clap::ArgMatches) -> Result<()> {
+fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result<()> {
     let path = std::path::Path::new(matches.value_of(args::UPLOAD_PATH_ARG).unwrap());
 
     if !path.exists() {
@@ -102,12 +126,17 @@ fn upload_dbg_info(matches: &clap::ArgMatches) -> Result<()> {
         files
     };
 
+    let creds = s3::creds::Credentials::default().unwrap();
+    let region = "us-east-2".parse().unwrap();
+    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds).unwrap();
+
     // Files to upload
     for file in files {
         match symstore::file::file_to_key(&file) {
             Ok(key) => {
                 if let Some(key) = key {
-                    println!("uploading {} -> {}", file.display(), key);
+                    println!("uploading '{}' to s3 bucket '{}' with key '{}'", file.display(), config.bucket, key);
+                    bucket.put_object_stream_blocking(file, key).unwrap();
                 } else {
                     warn!("{} has no key", file.display());
                 }

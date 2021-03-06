@@ -5,6 +5,7 @@ const APP_AUTHOR: &str = "matt";
 const APP_NAME: &str = "symbols";
 
 pub const VERBOSITY_ARG: &str = "verbosity";
+pub const CONFIG_FILE_ARG: &str = "config";
 
 pub const UPLOAD_SUBCOMMAND: &str = "upload";
 pub const UPLOAD_PATH_ARG: &str = "path";
@@ -21,6 +22,15 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .short("v")
                 .multiple(true)
                 .help("Sets the level of verbosity"),
+        )
+        .arg(
+            clap::Arg::with_name(CONFIG_FILE_ARG)
+                .short("c")
+                .long("config")
+                .value_name("FILE")
+                .help("Path to config file")
+                .required(false)
+                .takes_value(true)
         )
         .subcommand(
             clap::SubCommand::with_name(UPLOAD_SUBCOMMAND)
