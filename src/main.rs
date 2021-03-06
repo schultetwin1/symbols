@@ -1,12 +1,12 @@
-use log::{/*error,*/ /*debug,*/ info, trace, warn};
-use ignore::WalkBuilder;
 use anyhow::{anyhow, Context, Result};
+use ignore::WalkBuilder;
+use log::{/*error,*/ /*debug,*/ info, trace, warn};
 
 use std::io::Read;
 
+mod args;
 mod config;
 mod symstore;
-mod args;
 
 #[derive(Debug, PartialEq, Eq)]
 enum FileType {
@@ -14,7 +14,7 @@ enum FileType {
     PE,
     PDB,
     /* MachO, */
-    Unknown
+    Unknown,
 }
 
 const ELF_MAGIC_BYTES: &[u8; 4] = b"\x7FELF";
@@ -36,14 +36,13 @@ fn is_object_file(path: &std::path::Path) -> std::io::Result<FileType> {
 
     if magic.starts_with(ELF_MAGIC_BYTES) {
         Ok(FileType::Elf)
-    } else if magic [0..2] == b"MZ"[..] || magic[0..2] == b"ZM"[..] {
+    } else if magic[0..2] == b"MZ"[..] || magic[0..2] == b"ZM"[..] {
         Ok(FileType::PE)
     } else if magic.starts_with(PDB_MAGIC_BYTES) {
         Ok(FileType::PDB)
     } else {
         Ok(FileType::Unknown)
     }
-
 }
 
 fn main() -> Result<()> {
@@ -59,20 +58,26 @@ fn main() -> Result<()> {
     }
 
     if let Some(path) = config_path {
-        config = config::read_config(&path).context(format!("Failed to read config at '{}'", path.display()))?;
+        config = config::read_config(&path)
+            .context(format!("Failed to read config at '{}'", path.display()))?;
     }
-
 
     if let Some(matches) = matches.subcommand_matches(args::UPLOAD_SUBCOMMAND) {
         info!("Upload subcommand");
-        if let Some(server) = config.servers.iter().filter(|server| server.access == config::RemoteStorageAccess::ReadWrite).next() {
+        if let Some(server) = config
+            .servers
+            .iter()
+            .filter(|server| server.access == config::RemoteStorageAccess::ReadWrite)
+            .next()
+        {
             match &server.storage_type {
                 config::RemoteStorageType::HTTP(c) => {
-                    return Err(anyhow!("Upload to HTTP server ({}) not yet implemented!", c.url))
-                },
-                config::RemoteStorageType::S3(c) => {
-                    upload_to_s3(matches, c)
+                    return Err(anyhow!(
+                        "Upload to HTTP server ({}) not yet implemented!",
+                        c.url
+                    ))
                 }
+                config::RemoteStorageType::S3(c) => upload_to_s3(matches, c),
             }
         } else {
             Err(anyhow!("No server specified in config for upload"))
@@ -136,7 +141,12 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
             Ok(key) => {
                 if let Some(key) = key {
                     let full_key = format!("{}{}", &config.prefix, &key);
-                    println!("uploading '{}' to s3 bucket '{}' with key '{}'", file.display(), config.bucket, full_key);
+                    println!(
+                        "uploading '{}' to s3 bucket '{}' with key '{}'",
+                        file.display(),
+                        config.bucket,
+                        full_key
+                    );
                     bucket.put_object_stream_blocking(file, key)?;
                 } else {
                     warn!("{} has no key", file.display());

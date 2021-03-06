@@ -30,7 +30,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .value_name("FILE")
                 .help("Path to config file")
                 .required(false)
-                .takes_value(true)
+                .takes_value(true),
         )
         .subcommand(
             clap::SubCommand::with_name(UPLOAD_SUBCOMMAND)
@@ -52,8 +52,10 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .short("d")
                         .long("dry-run")
                         .help("Fake the upload part")
-                        .long_help("Shows where the files would be uploaded, but does not run the upload")
-                )
+                        .long_help(
+                            "Shows where the files would be uploaded, but does not run the upload",
+                        ),
+                ),
         )
         .get_matches()
 }

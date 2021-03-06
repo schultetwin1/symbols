@@ -89,15 +89,9 @@ fn elf_to_key(
 ) -> Result<Option<std::string::String>, SymStoreErr> {
     if let Some(code_id) = elf.code_id() {
         let key = if elf.has_debug_info() {
-            format!(
-                "buildid/{note}/debuginfo",
-                note = code_id.as_ref()
-            )
+            format!("buildid/{note}/debuginfo", note = code_id.as_ref())
         } else {
-            format!(
-                "buildid/{note}/executable",
-                note = code_id.as_ref()
-            )
+            format!("buildid/{note}/executable", note = code_id.as_ref())
         };
         Ok(Some(key))
     } else {
