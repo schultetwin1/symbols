@@ -50,7 +50,7 @@ fn object_to_key(filename: &str, obj: &Object) -> Result<Option<std::string::Str
     match obj {
         Object::Pe(pe) => pe_to_key(filename, &pe),
         Object::Pdb(pdb) => pdb_to_key(filename, &pdb),
-        Object::Elf(elf) => elf_to_key(filename, &elf),
+        Object::Elf(elf) => elf_to_key(&elf),
         _ => Ok(None),
     }
 }
@@ -85,19 +85,17 @@ fn pdb_to_key(
 }
 
 fn elf_to_key(
-    filename: &str,
     elf: &symbolic_debuginfo::elf::ElfObject,
 ) -> Result<Option<std::string::String>, SymStoreErr> {
     if let Some(code_id) = elf.code_id() {
         let key = if elf.has_debug_info() {
             format!(
-                "_.debug/elf-buildid-sym-{note}/_.debug",
+                "buildid/{note}/debuginfo",
                 note = code_id.as_ref()
             )
         } else {
             format!(
-                "{filename}/elf-buildid-{note}/{filename}",
-                filename = filename,
+                "buildid/{note}/executable",
                 note = code_id.as_ref()
             )
         };
