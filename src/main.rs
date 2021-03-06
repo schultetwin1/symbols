@@ -126,7 +126,7 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
         files
     };
 
-    let creds = s3::creds::Credentials::default()?;
+    let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
     let region = config.region.parse()?;
     let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
 
@@ -135,7 +135,8 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
         match symstore::file::file_to_key(&file) {
             Ok(key) => {
                 if let Some(key) = key {
-                    println!("uploading '{}' to s3 bucket '{}' with key '{}'", file.display(), config.bucket, key);
+                    let full_key = format!("{}{}", &config.prefix, &key);
+                    println!("uploading '{}' to s3 bucket '{}' with key '{}'", file.display(), config.bucket, full_key);
                     bucket.put_object_stream_blocking(file, key)?;
                 } else {
                     warn!("{} has no key", file.display());
