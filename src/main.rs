@@ -126,9 +126,9 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
         files
     };
 
-    let creds = s3::creds::Credentials::default().unwrap();
-    let region = "us-east-2".parse().unwrap();
-    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds).unwrap();
+    let creds = s3::creds::Credentials::default()?;
+    let region = config.region.parse()?;
+    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
 
     // Files to upload
     for file in files {
@@ -136,7 +136,7 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
             Ok(key) => {
                 if let Some(key) = key {
                     println!("uploading '{}' to s3 bucket '{}' with key '{}'", file.display(), config.bucket, key);
-                    bucket.put_object_stream_blocking(file, key).unwrap();
+                    bucket.put_object_stream_blocking(file, key)?;
                 } else {
                     warn!("{} has no key", file.display());
                 }

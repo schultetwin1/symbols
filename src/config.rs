@@ -18,8 +18,7 @@ pub struct S3Config {
     #[serde(default)]
     pub prefix: String,
 
-    #[serde(default)]
-    pub endpoint: String
+    pub region: String
 }
 
 #[derive(Debug, Deserialize)]
