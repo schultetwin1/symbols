@@ -70,12 +70,10 @@ fn main() -> Result<()> {
             .find(|server| server.access == config::RemoteStorageAccess::ReadWrite)
         {
             match &server.storage_type {
-                config::RemoteStorageType::HTTP(c) => {
-                    Err(anyhow!(
-                        "Upload to HTTP server ({}) not yet implemented!",
-                        c.url
-                    ))
-                }
+                config::RemoteStorageType::HTTP(c) => Err(anyhow!(
+                    "Upload to HTTP server ({}) not yet implemented!",
+                    c.url
+                )),
                 config::RemoteStorageType::S3(c) => upload_to_s3(matches, c),
             }
         } else {
