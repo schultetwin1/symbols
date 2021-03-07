@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use ignore::WalkBuilder;
 use log::{/*error,*/ /*debug,*/ info, trace, warn};
 
-use std::{io::Read, path::PathBuf};
+use std::{io::Read, path::Path, path::PathBuf};
 
 mod args;
 mod config;
@@ -17,59 +17,17 @@ enum FileType {
     Unknown,
 }
 
-const ELF_MAGIC_BYTES: &[u8; 4] = b"\x7FELF";
-const PDB_MAGIC_BYTES: &[u8; 28] = b"Microsoft C / C++ MSF 7.00\r\n";
-
-fn is_object_file(path: &std::path::Path) -> std::io::Result<FileType> {
-    let mut file = std::fs::OpenOptions::new()
-        .write(false)
-        .read(true)
-        .open(path)?;
-
-    let mut magic = [0u8; 256];
-
-    if (file.metadata().unwrap().len() as usize) < magic.len() {
-        return Ok(FileType::Unknown);
-    }
-
-    file.read_exact(&mut magic)?;
-
-    if magic.starts_with(ELF_MAGIC_BYTES) {
-        Ok(FileType::Elf)
-    } else if magic[0..2] == b"MZ"[..] || magic[0..2] == b"ZM"[..] {
-        Ok(FileType::PE)
-    } else if magic.starts_with(PDB_MAGIC_BYTES) {
-        Ok(FileType::PDB)
-    } else {
-        Ok(FileType::Unknown)
-    }
-}
-
 fn main() -> Result<()> {
-    let mut config = config::Config::default();
     let matches = args::parse_args();
     initialize_logger(&matches);
     trace!("logger initialized");
 
-    let mut config_path = None;
-    if let Some(dirs) = directories::ProjectDirs::from("", "", "symbols") {
-        config_path = Some(PathBuf::from(dirs.config_dir()).join("symbols.toml"));
-    }
-
-    if let Some(path) = matches.value_of(args::CONFIG_FILE_ARG) {
-        config_path = Some(PathBuf::from(path));
-    }
-
-    if let Some(path) = config_path {
-        if path.exists() {
-            config = config::read_config(&path)
-                .context(format!("Failed to read config at '{}'", path.display()))?;
-        } else if matches.value_of(args::CONFIG_FILE_ARG).is_some() {
-            return Err(anyhow!("Specified config file '{}' does not exist", path.display()));
-        } else {
-            warn!("No config file found at '{}'", path.display());
-        }
-    }
+    let config = if let Some(path) = matches.value_of(args::CONFIG_FILE_ARG) {
+        let path = PathBuf::from(path);
+        config::Config::from(&path).context(format!("Failed to read config from '{}'", path.display()))?
+    } else {
+        config::Config::init().context("Failed to read default config")?
+    };
 
     if let Some(matches) = matches.subcommand_matches(args::UPLOAD_SUBCOMMAND) {
         info!("Upload subcommand");
@@ -107,6 +65,34 @@ fn initialize_logger(matches: &clap::ArgMatches) {
         _ => logger.filter_level(log::LevelFilter::Trace),
     };
     logger.init();
+}
+
+fn is_object_file(path: &Path) -> std::io::Result<FileType> {
+    const ELF_MAGIC_BYTES: &[u8; 4] = b"\x7FELF";
+    const PDB_MAGIC_BYTES: &[u8; 28] = b"Microsoft C / C++ MSF 7.00\r\n";
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(false)
+        .read(true)
+        .open(path)?;
+
+    let mut magic = [0u8; 256];
+
+    if (file.metadata().unwrap().len() as usize) < magic.len() {
+        return Ok(FileType::Unknown);
+    }
+
+    file.read_exact(&mut magic)?;
+
+    if magic.starts_with(ELF_MAGIC_BYTES) {
+        Ok(FileType::Elf)
+    } else if magic[0..2] == b"MZ"[..] || magic[0..2] == b"ZM"[..] {
+        Ok(FileType::PE)
+    } else if magic.starts_with(PDB_MAGIC_BYTES) {
+        Ok(FileType::PDB)
+    } else {
+        Ok(FileType::Unknown)
+    }
 }
 
 fn find_obj_files(matches: &clap::ArgMatches) -> Result<Vec<PathBuf>> {

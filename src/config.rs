@@ -1,5 +1,7 @@
 use std::path;
 
+use log::{/*error,*/ /*debug,*/ info, /* trace,*/ warn};
+
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -68,7 +70,35 @@ impl Default for Config {
     }
 }
 
+impl Config {
+    pub fn init() -> std::io::Result<Self> {
+        let mut config = Self::default();
+        let mut default_config_path = None;
+
+        if let Some(dirs) = directories::ProjectDirs::from("", "", "symbols") {
+            default_config_path = Some(dirs.config_dir().join("symbols.toml"));
+        } else {
+            warn!("Unable to find OS config path");
+        }
+
+        if let Some(path) = default_config_path {
+            if path.exists() {
+                config = read_config(&path)?;
+            } else {
+                warn!("No config file found at '{}'", path.display());
+            }
+        }
+
+        Ok(config)
+    }
+
+    pub fn from(path: &path::Path) -> std::io::Result<Self> {
+        read_config(path)
+    }
+}
+
 pub fn read_config(path: &path::Path) -> std::io::Result<Config> {
+    info!("Reading config from {}", path.display());
     let content = std::fs::read_to_string(path)?;
     let config: Config = toml::from_str(&content)?;
     Ok(config)
