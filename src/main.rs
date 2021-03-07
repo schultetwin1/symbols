@@ -46,20 +46,29 @@ fn is_object_file(path: &std::path::Path) -> std::io::Result<FileType> {
 }
 
 fn main() -> Result<()> {
-    let xdg_dirs = xdg::BaseDirectories::new().context("Unable to find home directory")?;
-    let mut config_path = xdg_dirs.find_config_file("symbols.toml");
     let mut config = config::Config::default();
     let matches = args::parse_args();
     initialize_logger(&matches);
     trace!("logger initialized");
 
+    let mut config_path = None;
+    if let Some(dirs) = directories::ProjectDirs::from("", "", "symbols") {
+        config_path = Some(PathBuf::from(dirs.config_dir()).join("symbols.toml"));
+    }
+
     if let Some(path) = matches.value_of(args::CONFIG_FILE_ARG) {
-        config_path = Some(std::path::PathBuf::from(path));
+        config_path = Some(PathBuf::from(path));
     }
 
     if let Some(path) = config_path {
-        config = config::read_config(&path)
-            .context(format!("Failed to read config at '{}'", path.display()))?;
+        if path.exists() {
+            config = config::read_config(&path)
+                .context(format!("Failed to read config at '{}'", path.display()))?;
+        } else if matches.value_of(args::CONFIG_FILE_ARG).is_some() {
+            return Err(anyhow!("Specified config file '{}' does not exist", path.display()));
+        } else {
+            warn!("No config file found at '{}'", path.display());
+        }
     }
 
     if let Some(matches) = matches.subcommand_matches(args::UPLOAD_SUBCOMMAND) {

@@ -10,7 +10,7 @@ pub struct Config {
         alias = "cache",
         alias = "Cache"
     )]
-    pub cache_dir: path::PathBuf,
+    pub cache_dir: Option<path::PathBuf>,
 
     #[serde(default = "default_servers")]
     pub servers: std::vec::Vec<RemoteStorage>,
@@ -74,9 +74,9 @@ pub fn read_config(path: &path::Path) -> std::io::Result<Config> {
     Ok(config)
 }
 
-fn default_cache_dir() -> path::PathBuf {
-    let xdg_dirs = xdg::BaseDirectories::new().unwrap();
-    xdg_dirs.get_cache_home()
+fn default_cache_dir() -> Option<path::PathBuf> {
+    let dirs = directories::ProjectDirs::from("", "", "symbols")?;
+    Some(dirs.cache_dir().to_owned())
 }
 
 fn default_servers() -> std::vec::Vec<RemoteStorage> {
