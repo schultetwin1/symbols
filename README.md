@@ -1,6 +1,6 @@
 # symbols
 
-[![Build Status](https://mattschulte.visualstudio.com/dbg/_apis/build/status/schultetwin1.dbg?branchName=master)](https://mattschulte.visualstudio.com/dbg/_build/latest?definitionId=1&branchName=master)
+[![CI](https://github.com/schultetwin1/symbols/actions/workflows/CI.yml/badge.svg)](https://github.com/schultetwin1/symbols/actions/workflows/CI.yml)
 
 symbols is a CLI tool to download and upload debug symbols for native code
 (such as C,C++, or Rust) to symbol servers.
