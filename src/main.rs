@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use ignore::WalkBuilder;
 use log::{/*error,*/ /*debug,*/ info, trace, warn};
 
-use std::io::Read;
+use std::{io::Read, path::PathBuf};
 
 mod args;
 mod config;
@@ -64,6 +64,8 @@ fn main() -> Result<()> {
 
     if let Some(matches) = matches.subcommand_matches(args::UPLOAD_SUBCOMMAND) {
         info!("Upload subcommand");
+        let files = find_obj_files(&matches)?;
+        let files = map_files_to_keys(&files);
         if let Some(server) = config
             .servers
             .iter()
@@ -74,7 +76,7 @@ fn main() -> Result<()> {
                     "Upload to HTTP server ({}) not yet implemented!",
                     c.url
                 )),
-                config::RemoteStorageType::S3(c) => upload_to_s3(matches, c),
+                config::RemoteStorageType::S3(c) => upload_to_s3(c, &files),
             }
         } else {
             Err(anyhow!("No server specified in config for upload"))
@@ -98,7 +100,7 @@ fn initialize_logger(matches: &clap::ArgMatches) {
     logger.init();
 }
 
-fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result<()> {
+fn find_obj_files(matches: &clap::ArgMatches) -> Result<Vec<PathBuf>> {
     let path = std::path::Path::new(matches.value_of(args::UPLOAD_PATH_ARG).unwrap());
 
     if !path.exists() {
@@ -127,23 +129,16 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
         files
     };
 
-    let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
-    let region = config.region.parse()?;
-    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
+    Ok(files)
+}
 
-    // Files to upload
+fn map_files_to_keys(files: &Vec<PathBuf>) -> Vec<(PathBuf, String)> {
+    let mut map: Vec<(PathBuf, String)> = Vec::new();
     for file in files {
         match symstore::file::file_to_key(&file) {
             Ok(key) => {
                 if let Some(key) = key {
-                    let full_key = format!("{}{}", &config.prefix, &key);
-                    println!(
-                        "uploading '{}' to s3 bucket '{}' with key '{}'",
-                        file.display(),
-                        config.bucket,
-                        full_key
-                    );
-                    bucket.put_object_stream_blocking(file, key)?;
+                    map.push((file.clone(), key));
                 } else {
                     warn!("{} has no key", file.display());
                 }
@@ -152,6 +147,26 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
                 println!("Error parsing: {}", file.display());
             }
         }
+    }
+
+    map
+}
+
+fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>) -> Result<()> {
+    let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
+    let region = config.region.parse()?;
+    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
+
+    // Files to upload
+    for file in files {
+        let full_key = format!("{}{}", &config.prefix, &file.1);
+        println!(
+            "uploading '{}' to s3 bucket '{}' with key '{}'",
+            file.0.display(),
+            config.bucket,
+            full_key
+        );
+        bucket.put_object_stream_blocking(&file.0, full_key)?;
     }
 
     Ok(())
