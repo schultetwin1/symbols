@@ -67,12 +67,11 @@ fn main() -> Result<()> {
         if let Some(server) = config
             .servers
             .iter()
-            .filter(|server| server.access == config::RemoteStorageAccess::ReadWrite)
-            .next()
+            .find(|server| server.access == config::RemoteStorageAccess::ReadWrite)
         {
             match &server.storage_type {
                 config::RemoteStorageType::HTTP(c) => {
-                    return Err(anyhow!(
+                    Err(anyhow!(
                         "Upload to HTTP server ({}) not yet implemented!",
                         c.url
                     ))
@@ -96,7 +95,7 @@ fn initialize_logger(matches: &clap::ArgMatches) {
         1 => logger.filter_level(log::LevelFilter::Warn),
         2 => logger.filter_level(log::LevelFilter::Info),
         3 => logger.filter_level(log::LevelFilter::Debug),
-        4 | _ => logger.filter_level(log::LevelFilter::Trace),
+        _ => logger.filter_level(log::LevelFilter::Trace),
     };
     logger.init();
 }
@@ -119,7 +118,6 @@ fn upload_to_s3(matches: &clap::ArgMatches, config: &config::S3Config) -> Result
             .max_depth(max_depth)
             .git_ignore(false)
             .build()
-            .into_iter()
             .filter_map(|v| v.ok())
             .filter(|x| x.path().is_file())
             .filter(|x| is_object_file(x.path()).unwrap_or(FileType::Unknown) != FileType::Unknown)

@@ -50,8 +50,9 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: 'Clippy Check'
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      # Removing until https://github.com/rust-lang/rust-clippy/issues/4612 is in stable
+      # - name: 'Clippy Check'
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: clippy
+      #     args: -- -D warnings
