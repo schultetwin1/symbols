@@ -35,11 +35,16 @@ fn main() -> Result<()> {
         info!("Upload subcommand");
         let files = find_obj_files(&matches)?;
         let files = map_files_to_keys(&files);
-        if let Some(server) = config
+        let mut writable_servers = config
             .servers
             .iter()
-            .find(|server| server.access == config::RemoteStorageAccess::ReadWrite)
-        {
+            .filter(|server| server.access == config::RemoteStorageAccess::ReadWrite);
+        let server = if let Some(name) = matches.value_of(args::UPLOAD_SERVER_NAME_ARG) {
+            writable_servers.find(|server| server.name.as_ref().unwrap_or(&"".to_owned()) == name)
+        } else {
+            writable_servers.next()
+        };
+        if let Some(server) = server {
             match &server.storage_type {
                 config::RemoteStorageType::HTTP(c) => Err(anyhow!(
                     "Upload to HTTP server ({}) not yet implemented!",
@@ -178,8 +183,13 @@ fn upload_to_b2(config: &config::B2Config, files: &Vec<(PathBuf, String)>) -> Re
             return Err(anyhow!("Failed to find any b2 credentials"));
         }
     };
-    let creds =
-        s3::creds::Credentials::new(Some(&b2_creds.key_id), Some(&b2_creds.key), None, None, None)?;
+    let creds = s3::creds::Credentials::new(
+        Some(&b2_creds.key_id),
+        Some(&b2_creds.key),
+        None,
+        None,
+        None,
+    )?;
     let region = s3::region::Region::Custom {
         region: "b2".to_owned(),
         endpoint: config.endpoint.clone(),

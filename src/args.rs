@@ -11,6 +11,7 @@ pub const UPLOAD_SUBCOMMAND: &str = "upload";
 pub const UPLOAD_PATH_ARG: &str = "path";
 pub const UPLOAD_RECUSRIVE_ARG: &str = "recursive";
 pub const UPLOAD_DRY_RUN_ARG: &str = "dry-run";
+pub const UPLOAD_SERVER_NAME_ARG: &str = "server";
 
 pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
     clap::App::new(APP_NAME)
@@ -55,6 +56,15 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .long_help(
                             "Shows where the files would be uploaded, but does not run the upload",
                         ),
+                )
+                .arg(
+                    clap::Arg::with_name(UPLOAD_SERVER_NAME_ARG)
+                        .short("s")
+                        .long("server")
+                        .help("Name of server in config file")
+                        .long_help("Specify which server in config file to upload files too")
+                        .required(false)
+                        .takes_value(true),
                 ),
         )
         .get_matches()

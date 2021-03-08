@@ -62,6 +62,8 @@ pub enum RemoteStorageAccess {
 pub struct RemoteStorage {
     pub access: RemoteStorageAccess,
 
+    pub name: Option<String>,
+
     #[serde(flatten)]
     pub storage_type: RemoteStorageType,
 }
@@ -133,6 +135,7 @@ fn default_cache_dir() -> Option<path::PathBuf> {
 fn default_servers() -> std::vec::Vec<RemoteStorage> {
     vec![RemoteStorage {
         access: RemoteStorageAccess::Read,
+        name: None,
         storage_type: RemoteStorageType::HTTP(HTTPConfig {
             url: "https://debuginfod.elfutils.org/".to_string(),
         }),
