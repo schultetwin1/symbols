@@ -5,6 +5,7 @@ use log::{/*error,*/ /*debug,*/ info, trace, warn};
 use std::{io::Read, path::Path, path::PathBuf};
 
 mod args;
+mod b2;
 mod config;
 mod symstore;
 
@@ -45,9 +46,7 @@ fn main() -> Result<()> {
                     c.url
                 )),
                 config::RemoteStorageType::S3(c) => upload_to_s3(c, &files),
-                config::RemoteStorageType::B2(_c) => {
-                    Err(anyhow!("Upload to B2 server not yet implemented!"))
-                }
+                config::RemoteStorageType::B2(c) => upload_to_b2(c, &files),
                 config::RemoteStorageType::Path(c) => copy_to_folder(c, &files),
             }
         } else {
@@ -162,6 +161,37 @@ fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>) -> Re
         let full_key = format!("{}{}", &config.prefix, &file.1);
         println!(
             "uploading '{}' to s3 bucket '{}' with key '{}'",
+            file.0.display(),
+            config.bucket,
+            full_key
+        );
+        bucket.put_object_stream_blocking(&file.0, full_key)?;
+    }
+
+    Ok(())
+}
+
+fn upload_to_b2(config: &config::B2Config, files: &Vec<(PathBuf, String)>) -> Result<()> {
+    let b2_creds = match b2::Credentials::from_env() {
+        Some(creds) => creds,
+        None => {
+            return Err(anyhow!("Failed to find any b2 credentials"));
+        }
+    };
+    let creds =
+        s3::creds::Credentials::new(Some(&b2_creds.key_id), Some(&b2_creds.key), None, None, None)?;
+    let region = s3::region::Region::Custom {
+        region: "b2".to_owned(),
+        endpoint: config.endpoint.clone(),
+    };
+
+    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
+
+    // Files to upload
+    for file in files {
+        let full_key = format!("{}{}", &config.prefix, &file.1);
+        println!(
+            "uploading '{}' to b2 bucket '{}' with key '{}'",
             file.0.display(),
             config.bucket,
             full_key
