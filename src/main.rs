@@ -78,7 +78,7 @@ fn initialize_logger(matches: &clap::ArgMatches) {
 
 fn is_object_file(path: &Path) -> std::io::Result<FileType> {
     const ELF_MAGIC_BYTES: &[u8; 4] = b"\x7FELF";
-    const PDB_MAGIC_BYTES: &[u8; 28] = b"Microsoft C / C++ MSF 7.00\r\n";
+    const PDB_MAGIC_BYTES: &[u8; 26] = b"Microsoft C/C++ MSF 7.00\r\n";
 
     let mut file = std::fs::OpenOptions::new()
         .write(false)
