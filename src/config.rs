@@ -1,4 +1,4 @@
-use std::path;
+use std::path::{self, PathBuf};
 
 use log::{/*error,*/ /*debug,*/ info, /* trace,*/ warn};
 
@@ -31,8 +31,22 @@ pub struct S3Config {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct B2Config {
+    pub bucket: String,
+
+    #[serde(default)]
+    pub prefix: String,
+    pub profile: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct HTTPConfig {
     pub url: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PathConfig {
+    pub path: PathBuf,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -59,6 +73,12 @@ pub enum RemoteStorageType {
 
     #[serde(alias = "s3")]
     S3(S3Config),
+
+    #[serde(alias = "b2")]
+    B2(B2Config),
+
+    #[serde(alias = "path")]
+    Path(PathConfig),
 }
 
 impl Default for Config {

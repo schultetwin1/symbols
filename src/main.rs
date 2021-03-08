@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{anyhow, Context, Result};
 use ignore::WalkBuilder;
 use log::{/*error,*/ /*debug,*/ info, trace, warn};
 
@@ -24,7 +24,8 @@ fn main() -> Result<()> {
 
     let config = if let Some(path) = matches.value_of(args::CONFIG_FILE_ARG) {
         let path = PathBuf::from(path);
-        config::Config::from(&path).context(format!("Failed to read config from '{}'", path.display()))?
+        config::Config::from(&path)
+            .context(format!("Failed to read config from '{}'", path.display()))?
     } else {
         config::Config::init().context("Failed to read default config")?
     };
@@ -44,6 +45,10 @@ fn main() -> Result<()> {
                     c.url
                 )),
                 config::RemoteStorageType::S3(c) => upload_to_s3(c, &files),
+                config::RemoteStorageType::B2(_c) => {
+                    Err(anyhow!("Upload to B2 server not yet implemented!"))
+                }
+                config::RemoteStorageType::Path(c) => copy_to_folder(c, &files),
             }
         } else {
             Err(anyhow!("No server specified in config for upload"))
@@ -162,6 +167,26 @@ fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>) -> Re
             full_key
         );
         bucket.put_object_stream_blocking(&file.0, full_key)?;
+    }
+
+    Ok(())
+}
+
+fn copy_to_folder(config: &config::PathConfig, files: &Vec<(PathBuf, String)>) -> Result<()> {
+    for file in files {
+        let dest = config.path.join(&file.1);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent).context(format!(
+                "Failed to create destination folder '{}'",
+                parent.display()
+            ))?;
+        }
+        println!("Copying '{}' to '{}'", file.0.display(), dest.display());
+        std::fs::copy(&file.0, &dest).context(format!(
+            "Failed to copy '{}' to '{}'",
+            file.0.display(),
+            dest.display()
+        ))?;
     }
 
     Ok(())
