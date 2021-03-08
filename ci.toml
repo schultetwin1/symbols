@@ -1,0 +1,12 @@
+[[servers]]
+access = "read"
+type = "http"
+url = "https://debuginfod.elfutils.org/"
+
+[[servers]]
+access = "write"
+type = "s3"
+name = "s3"
+bucket = "matts-symbols"
+region = "us-east-2"
+profile = "default"

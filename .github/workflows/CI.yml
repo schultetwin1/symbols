@@ -56,3 +56,11 @@ jobs:
       #   with:
       #     command: clippy
       #     args: -- -D warnings
+
+      # Publish the recently built symbols
+      - name: 'Publish built symbols'
+        run: |
+          ./target/release/symbols -c ci.toml upload target/release/
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
