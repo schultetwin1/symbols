@@ -1,6 +1,9 @@
 use log::{error, /*debug,*/ /*info, */ /*trace, */ warn};
 use rusqlite::OpenFlags;
-use std::{env, path::{Path, PathBuf}};
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug)]
 pub struct Credentials {
@@ -11,7 +14,7 @@ pub struct Credentials {
 impl Credentials {
     pub fn from_account_id(account_id: Option<&str>) -> Option<Self> {
         match Self::from_env() {
-            Some(creds ) => Some(creds),
+            Some(creds) => Some(creds),
             None => {
                 let info_path = if let Ok(info_path_env_str) = std::env::var("B2_ACCOUNT_INFO") {
                     PathBuf::from(info_path_env_str)
@@ -56,7 +59,9 @@ impl Credentials {
             }
         };
 
-        let mut query = String::from("SELECT account_id, application_key, account_id_or_app_key_id FROM account");
+        let mut query = String::from(
+            "SELECT account_id, application_key, account_id_or_app_key_id FROM account",
+        );
         if account_id.is_some() {
             query = format!("{} WHERE account_id = \"{}\"", query, account_id.unwrap());
         }
@@ -77,7 +82,7 @@ impl Credentials {
             Ok(iter) => iter,
             Err(e) => {
                 error!("Failed to map query results for b2 database {}", e);
-                return  None;
+                return None;
             }
         };
 
