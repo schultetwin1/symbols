@@ -37,7 +37,7 @@ pub struct B2Config {
     #[serde(default)]
     pub prefix: String,
     pub endpoint: String,
-    pub profile: Option<String>,
+    pub account_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

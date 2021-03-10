@@ -177,7 +177,7 @@ fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>) -> Re
 }
 
 fn upload_to_b2(config: &config::B2Config, files: &Vec<(PathBuf, String)>) -> Result<()> {
-    let b2_creds = match b2::Credentials::from_env() {
+    let b2_creds = match b2::Credentials::from_account_id(config.account_id.as_deref()) {
         Some(creds) => creds,
         None => {
             return Err(anyhow!("Failed to find any b2 credentials"));
