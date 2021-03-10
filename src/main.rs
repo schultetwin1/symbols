@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use ignore::WalkBuilder;
 use log::{/*error,*/ /*debug,*/ info, trace, warn};
+use symbolic_debuginfo::FileFormat;
 
 use std::{io::Read, path::Path, path::PathBuf};
 
@@ -8,15 +9,6 @@ mod args;
 mod b2;
 mod config;
 mod symstore;
-
-#[derive(Debug, PartialEq, Eq)]
-enum FileType {
-    Elf,
-    PE,
-    PDB,
-    /* MachO, */
-    Unknown,
-}
 
 fn main() -> Result<()> {
     let matches = args::parse_args();
@@ -76,10 +68,7 @@ fn initialize_logger(matches: &clap::ArgMatches) {
     logger.init();
 }
 
-fn is_object_file(path: &Path) -> std::io::Result<FileType> {
-    const ELF_MAGIC_BYTES: &[u8; 4] = b"\x7FELF";
-    const PDB_MAGIC_BYTES: &[u8; 26] = b"Microsoft C/C++ MSF 7.00\r\n";
-
+fn is_object_file(path: &Path) -> std::io::Result<FileFormat> {
     let mut file = std::fs::OpenOptions::new()
         .write(false)
         .read(true)
@@ -88,20 +77,12 @@ fn is_object_file(path: &Path) -> std::io::Result<FileType> {
     let mut magic = [0u8; 256];
 
     if (file.metadata().unwrap().len() as usize) < magic.len() {
-        return Ok(FileType::Unknown);
+        return Ok(FileFormat::Unknown);
     }
 
     file.read_exact(&mut magic)?;
 
-    if magic.starts_with(ELF_MAGIC_BYTES) {
-        Ok(FileType::Elf)
-    } else if magic[0..2] == b"MZ"[..] || magic[0..2] == b"ZM"[..] {
-        Ok(FileType::PE)
-    } else if magic.starts_with(PDB_MAGIC_BYTES) {
-        Ok(FileType::PDB)
-    } else {
-        Ok(FileType::Unknown)
-    }
+    Ok(symbolic_debuginfo::peek(&magic, false))
 }
 
 fn find_obj_files(matches: &clap::ArgMatches) -> Result<Vec<PathBuf>> {
@@ -124,7 +105,9 @@ fn find_obj_files(matches: &clap::ArgMatches) -> Result<Vec<PathBuf>> {
             .build()
             .filter_map(|v| v.ok())
             .filter(|x| x.path().is_file())
-            .filter(|x| is_object_file(x.path()).unwrap_or(FileType::Unknown) != FileType::Unknown)
+            .filter(|x| {
+                is_object_file(x.path()).unwrap_or(FileFormat::Unknown) != FileFormat::Unknown
+            })
             .map(|x| x.into_path())
             .collect::<Vec<std::path::PathBuf>>()
     } else {

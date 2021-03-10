@@ -51,6 +51,7 @@ fn object_to_key(filename: &str, obj: &Object) -> Result<Option<std::string::Str
         Object::Pe(pe) => pe_to_key(filename, &pe),
         Object::Pdb(pdb) => pdb_to_key(filename, &pdb),
         Object::Elf(elf) => elf_to_key(&elf),
+        Object::MachO(macho) => macho_to_key(filename, &macho),
         _ => Ok(None),
     }
 }
@@ -92,6 +93,29 @@ fn elf_to_key(
             format!("buildid/{note}/debuginfo", note = code_id.as_ref())
         } else {
             format!("buildid/{note}/executable", note = code_id.as_ref())
+        };
+        Ok(Some(key))
+    } else {
+        Ok(None)
+    }
+}
+
+fn macho_to_key(
+    filename: &str,
+    macho: &symbolic_debuginfo::macho::MachObject,
+) -> Result<Option<std::string::String>, SymStoreErr> {
+    if let Some(code_id) = macho.code_id() {
+        let key = if macho.has_debug_info() {
+            format!(
+                "{filename}/mach-uuid-{note}/{filename}",
+                filename = filename,
+                note = code_id.as_ref()
+            )
+        } else {
+            format!(
+                "_.dwarf/mach-uuid-sym{note}/_.dwarf",
+                note = code_id.as_ref()
+            )
         };
         Ok(Some(key))
     } else {
