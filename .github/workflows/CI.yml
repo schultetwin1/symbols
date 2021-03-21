@@ -68,7 +68,7 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: symbols ${{ matrix.host }}
+          name: symbols ${{ matrix.host }} ${{ matrix.rust }}
           path: |
             target/release/symbols
             target/release/symbols.exe
