@@ -6,7 +6,6 @@ use symbolic_debuginfo::FileFormat;
 use std::{io::Read, path::Path, path::PathBuf};
 
 mod args;
-mod b2;
 mod config;
 mod symstore;
 
@@ -160,15 +159,14 @@ fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>) -> Re
 }
 
 fn upload_to_b2(config: &config::B2Config, files: &Vec<(PathBuf, String)>) -> Result<()> {
-    let b2_creds = match b2::Credentials::from_account_id(config.account_id.as_deref()) {
-        Some(creds) => creds,
-        None => {
-            return Err(anyhow!("Failed to find any b2 credentials"));
-        }
+    let b2_creds = match &config.account_id {
+        Some(id) => b2creds::Credentials::from_file(None, Some(&id))?,
+        None => b2creds::Credentials::default()?
     };
+
     let creds = s3::creds::Credentials::new(
-        Some(&b2_creds.key_id),
-        Some(&b2_creds.key),
+        Some(&b2_creds.application_key_id),
+        Some(&b2_creds.application_key),
         None,
         None,
         None,
