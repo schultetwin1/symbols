@@ -18,6 +18,7 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
 url = "2.2"
 directories = "3.0"
+walkdir = "2"
 
 [dependencies.rusqlite]
 version = "0.24.2"

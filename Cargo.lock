@@ -2136,6 +2136,7 @@ dependencies = [
  "symbolic-debuginfo",
  "toml",
  "url",
+ "walkdir",
 ]
 
 [[package]]
