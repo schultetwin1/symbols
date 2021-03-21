@@ -161,7 +161,7 @@ fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>) -> Re
 fn upload_to_b2(config: &config::B2Config, files: &Vec<(PathBuf, String)>) -> Result<()> {
     let b2_creds = match &config.account_id {
         Some(id) => b2creds::Credentials::from_file(None, Some(&id))?,
-        None => b2creds::Credentials::default()?
+        None => b2creds::Credentials::default()?,
     };
 
     let creds = s3::creds::Credentials::new(
