@@ -70,4 +70,5 @@ jobs:
         with:
           name: ${{ matrix.host }}/symbols
           path: |
-            target/release/symbols[.exe]
+            target/release/symbols
+            target/release/symbols.exe
