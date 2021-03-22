@@ -3,14 +3,13 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use ignore::WalkBuilder;
-use log::{/*error,*/ /*debug,*/ info, /*trace,*/ warn};
+use log::warn;
 use symbolic_debuginfo::FileFormat;
 
 use crate::config;
 use crate::symstore;
 
 pub fn upload(search_path: &Path, recursive: bool, server: &config::RemoteStorage) -> Result<()> {
-    info!("Upload subcommand");
     let files = find_obj_files(search_path, recursive)?;
     let files = map_files_to_keys(&files);
     match &server.storage_type {
