@@ -29,6 +29,7 @@ fn main() -> Result<()> {
                 .context("Unable to find upload path argument")?,
         );
         let recursive_search = matches.is_present(args::UPLOAD_RECUSRIVE_ARG);
+        let dryrun = matches.is_present(args::UPLOAD_DRY_RUN_ARG);
         let mut writable_servers = config
             .servers
             .iter()
@@ -39,7 +40,7 @@ fn main() -> Result<()> {
             writable_servers.next()
         };
         if let Some(server) = server {
-            upload::upload(search_path, recursive_search, server)
+            upload::upload(search_path, recursive_search, server, dryrun)
         } else {
             Err(anyhow!("No server specified in config for upload"))
         }
