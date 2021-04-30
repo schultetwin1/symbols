@@ -18,7 +18,7 @@ pub fn upload(
     let files = find_obj_files(search_path, recursive)?;
     let files = map_files_to_keys(&files);
     match &server.storage_type {
-        config::RemoteStorageType::HTTP(c) => Err(anyhow!(
+        config::RemoteStorageType::Http(c) => Err(anyhow!(
             "Upload to HTTP server ({}) not yet implemented!",
             c.url
         )),
@@ -68,15 +68,14 @@ fn find_obj_files(search_path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
             .map(|x| x.into_path())
             .collect::<Vec<std::path::PathBuf>>()
     } else {
-        let mut files = Vec::new();
-        files.push(search_path.to_path_buf());
+        let files = vec![search_path.to_path_buf()];
         files
     };
 
     Ok(files)
 }
 
-fn map_files_to_keys(files: &Vec<PathBuf>) -> Vec<(PathBuf, String)> {
+fn map_files_to_keys(files: &[PathBuf]) -> Vec<(PathBuf, String)> {
     let mut map: Vec<(PathBuf, String)> = Vec::new();
     for file in files {
         match symstore::file::file_to_key(&file) {
@@ -98,7 +97,7 @@ fn map_files_to_keys(files: &Vec<PathBuf>) -> Vec<(PathBuf, String)> {
 
 fn upload_to_s3(
     config: &config::S3Config,
-    files: &Vec<(PathBuf, String)>,
+    files: &[(PathBuf, String)],
     dryrun: bool,
 ) -> Result<()> {
     let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
@@ -127,7 +126,7 @@ fn upload_to_s3(
 
 fn upload_to_b2(
     config: &config::B2Config,
-    files: &Vec<(PathBuf, String)>,
+    files: &[(PathBuf, String)],
     dryrun: bool,
 ) -> Result<()> {
     let b2_creds = match &config.account_id {
@@ -171,7 +170,7 @@ fn upload_to_b2(
 
 fn copy_to_folder(
     config: &config::PathConfig,
-    files: &Vec<(PathBuf, String)>,
+    files: &[(PathBuf, String)],
     dryrun: bool,
 ) -> Result<()> {
     for file in files {

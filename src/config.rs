@@ -41,7 +41,7 @@ pub struct B2Config {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct HTTPConfig {
+pub struct HttpConfig {
     pub url: String,
 }
 
@@ -72,7 +72,7 @@ pub struct RemoteStorage {
 #[serde(tag = "type")]
 pub enum RemoteStorageType {
     #[serde(alias = "http")]
-    HTTP(HTTPConfig),
+    Http(HttpConfig),
 
     #[serde(alias = "s3")]
     S3(S3Config),
@@ -136,7 +136,7 @@ fn default_servers() -> std::vec::Vec<RemoteStorage> {
     vec![RemoteStorage {
         access: RemoteStorageAccess::Read,
         name: None,
-        storage_type: RemoteStorageType::HTTP(HTTPConfig {
+        storage_type: RemoteStorageType::Http(HttpConfig {
             url: "https://debuginfod.elfutils.org/".to_string(),
         }),
     }]

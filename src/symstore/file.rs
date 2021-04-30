@@ -19,7 +19,7 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
         Err(err) => {
             warn!("Unable to open file {}", path.display());
             warn!("Error: {}", err);
-            return Err(SymStoreErr::IOErr(err));
+            return Err(SymStoreErr::IoErr(err));
         }
     };
 
@@ -30,7 +30,7 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
         Err(err) => {
             warn!("Unable to read to end of file {}", path.display());
             warn!("Error: {}", err);
-            return Err(SymStoreErr::IOErr(err));
+            return Err(SymStoreErr::IoErr(err));
         }
     };
 
@@ -38,72 +38,64 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
         Ok(obj) => object_to_key(&filename, &obj),
         Err(_err) => {
             info!("Failed to parse file {}", path.display());
-            Ok(None)
+            None
         }
     };
 
     drop(buffer);
-    result
+    Ok(result)
 }
 
-fn object_to_key(filename: &str, obj: &Object) -> Result<Option<std::string::String>, SymStoreErr> {
+fn object_to_key(filename: &str, obj: &Object) -> Option<std::string::String> {
     match obj {
         Object::Pe(pe) => pe_to_key(filename, &pe),
-        Object::Pdb(pdb) => pdb_to_key(filename, &pdb),
+        Object::Pdb(pdb) => Some(pdb_to_key(filename, &pdb)),
         Object::Elf(elf) => elf_to_key(&elf),
         Object::MachO(macho) => macho_to_key(filename, &macho),
-        _ => Ok(None),
+        _ => None,
     }
 }
 
-fn pe_to_key(
-    filename: &str,
-    pe: &symbolic_debuginfo::pe::PeObject,
-) -> Result<Option<std::string::String>, SymStoreErr> {
+fn pe_to_key(filename: &str, pe: &symbolic_debuginfo::pe::PeObject) -> Option<std::string::String> {
     if let Some(code_id) = pe.code_id() {
         let key = format!(
             "{filename}/{codeid}/{filename}",
             filename = filename,
             codeid = code_id.as_str()
         );
-        Ok(Some(key))
+        Some(key)
     } else {
-        Ok(None)
+        None
     }
 }
 
-fn pdb_to_key(
-    filename: &str,
-    pdb: &symbolic_debuginfo::pdb::PdbObject,
-) -> Result<Option<std::string::String>, SymStoreErr> {
+fn pdb_to_key(filename: &str, pdb: &symbolic_debuginfo::pdb::PdbObject) -> std::string::String {
     let key = format!(
         "{filename}/{sig:X}{age:X}/{filename}",
         filename = filename,
         sig = pdb.debug_id().uuid().to_simple_ref(),
         age = pdb.debug_id().appendix()
     );
-    Ok(Some(key))
+    key
 }
 
-fn elf_to_key(
-    elf: &symbolic_debuginfo::elf::ElfObject,
-) -> Result<Option<std::string::String>, SymStoreErr> {
+fn elf_to_key(elf: &symbolic_debuginfo::elf::ElfObject) -> Option<std::string::String> {
     if let Some(code_id) = elf.code_id() {
         let key = if elf.has_debug_info() {
             format!("buildid/{note}/debuginfo", note = code_id.as_ref())
         } else {
             format!("buildid/{note}/executable", note = code_id.as_ref())
         };
-        Ok(Some(key))
+        Some(key)
     } else {
-        Ok(None)
+        None
     }
 }
 
 fn macho_to_key(
     filename: &str,
     macho: &symbolic_debuginfo::macho::MachObject,
-) -> Result<Option<std::string::String>, SymStoreErr> {
+) -> Option<std::string::String> {
     if let Some(code_id) = macho.code_id() {
         let key = if macho.has_debug_info() {
             format!(
@@ -117,8 +109,8 @@ fn macho_to_key(
                 note = code_id.as_ref()
             )
         };
-        Ok(Some(key))
+        Some(key)
     } else {
-        Ok(None)
+        None
     }
 }
