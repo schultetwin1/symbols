@@ -9,7 +9,12 @@ use symbolic_debuginfo::FileFormat;
 use crate::config;
 use crate::symstore;
 
-pub fn upload(search_path: &Path, recursive: bool, server: &config::RemoteStorage, dryrun: bool) -> Result<()> {
+pub fn upload(
+    search_path: &Path,
+    recursive: bool,
+    server: &config::RemoteStorage,
+    dryrun: bool,
+) -> Result<()> {
     let files = find_obj_files(search_path, recursive)?;
     let files = map_files_to_keys(&files);
     match &server.storage_type {
@@ -91,7 +96,11 @@ fn map_files_to_keys(files: &Vec<PathBuf>) -> Vec<(PathBuf, String)> {
     map
 }
 
-fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>, dryrun: bool) -> Result<()> {
+fn upload_to_s3(
+    config: &config::S3Config,
+    files: &Vec<(PathBuf, String)>,
+    dryrun: bool,
+) -> Result<()> {
     let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
     let region = config.region.parse()?;
     let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
@@ -113,7 +122,11 @@ fn upload_to_s3(config: &config::S3Config, files: &Vec<(PathBuf, String)>, dryru
     Ok(())
 }
 
-fn upload_to_b2(config: &config::B2Config, files: &Vec<(PathBuf, String)>, dryrun: bool) -> Result<()> {
+fn upload_to_b2(
+    config: &config::B2Config,
+    files: &Vec<(PathBuf, String)>,
+    dryrun: bool,
+) -> Result<()> {
     let b2_creds = match &config.account_id {
         Some(id) => b2creds::Credentials::from_file(None, Some(&id))?,
         None => b2creds::Credentials::default()?,
@@ -150,7 +163,11 @@ fn upload_to_b2(config: &config::B2Config, files: &Vec<(PathBuf, String)>, dryru
     Ok(())
 }
 
-fn copy_to_folder(config: &config::PathConfig, files: &Vec<(PathBuf, String)>, dryrun: bool) -> Result<()> {
+fn copy_to_folder(
+    config: &config::PathConfig,
+    files: &Vec<(PathBuf, String)>,
+    dryrun: bool,
+) -> Result<()> {
     for file in files {
         let dest = config.path.join(&file.1);
         if let Some(parent) = dest.parent() {
