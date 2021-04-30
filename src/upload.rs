@@ -115,7 +115,10 @@ fn upload_to_s3(
             full_key
         );
         if !dryrun {
-            bucket.put_object_stream_blocking(&file.0, full_key)?;
+            let mut f = std::fs::File::open(&file.0)?;
+            let mut buffer = Vec::new();
+            f.read_to_end(&mut buffer)?;
+            bucket.put_object(full_key, &buffer)?;
         }
     }
 
@@ -156,7 +159,10 @@ fn upload_to_b2(
             full_key
         );
         if !dryrun {
-            bucket.put_object_stream_blocking(&file.0, full_key)?;
+            let mut f = std::fs::File::open(&file.0)?;
+            let mut buffer = Vec::new();
+            f.read_to_end(&mut buffer)?;
+            bucket.put_object(full_key, &buffer)?;
         }
     }
 
