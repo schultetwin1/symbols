@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use ignore::WalkBuilder;
-use log::warn;
+use log::{debug, warn};
 use symbolic_debuginfo::FileFormat;
 
 use crate::config;
@@ -99,6 +99,41 @@ fn map_files_to_keys(files: &[PathBuf]) -> HashMap<String, PathBuf> {
     map
 }
 
+async fn upload_to_s3_helper(
+    prefix: &str,
+    files: &HashMap<String, PathBuf>,
+    dryrun: bool,
+    bucket: s3::bucket::Bucket,
+) -> Result<()> {
+    for file in files {
+        let full_key = format!("{}{}", prefix, &file.0);
+        println!(
+            "uploading '{}' to s3 bucket '{}' with key '{}'",
+            file.1.display(),
+            bucket.name,
+            full_key
+        );
+        if !dryrun {
+            let (_head_object_result, code) = bucket.head_object(&full_key).await?;
+            debug!("Head Object for {} returned {}", full_key, code);
+            if code != 200 {
+                bucket
+                    .put_object_stream(&file.1, &full_key)
+                    .await
+                    .context(format!("Failed to upload '{}' to S3", file.1.display()))?;
+            } else {
+                warn!(
+                    "Skipping {} -> {} since the key already exists on server",
+                    file.1.display(),
+                    full_key
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn upload_to_s3(
     config: &config::S3Config,
     files: &HashMap<String, PathBuf>,
@@ -108,24 +143,8 @@ fn upload_to_s3(
     let region = config.region.parse()?;
     let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
 
-    // Files to upload
-    for file in files {
-        let full_key = format!("{}{}", &config.prefix, &file.0);
-        println!(
-            "uploading '{}' to s3 bucket '{}' with key '{}'",
-            file.1.display(),
-            config.bucket,
-            full_key
-        );
-        if !dryrun {
-            let mut f = std::fs::File::open(&file.1)?;
-            let mut buffer = Vec::new();
-            f.read_to_end(&mut buffer)?;
-            bucket.put_object(full_key, &buffer)?;
-        }
-    }
-
-    Ok(())
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(upload_to_s3_helper(&config.prefix, files, dryrun, bucket))
 }
 
 fn upload_to_b2(
@@ -152,24 +171,8 @@ fn upload_to_b2(
 
     let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
 
-    // Files to upload
-    for file in files {
-        let full_key = format!("{}{}", &config.prefix, &file.0);
-        println!(
-            "uploading '{}' to b2 bucket '{}' with key '{}'",
-            file.1.display(),
-            config.bucket,
-            full_key
-        );
-        if !dryrun {
-            let mut f = std::fs::File::open(&file.1)?;
-            let mut buffer = Vec::new();
-            f.read_to_end(&mut buffer)?;
-            bucket.put_object(full_key, &buffer)?;
-        }
-    }
-
-    Ok(())
+    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(upload_to_s3_helper("", files, dryrun, bucket))
 }
 
 fn copy_to_folder(
