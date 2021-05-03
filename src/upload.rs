@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
@@ -75,13 +76,16 @@ fn find_obj_files(search_path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-fn map_files_to_keys(files: &[PathBuf]) -> Vec<(PathBuf, String)> {
-    let mut map: Vec<(PathBuf, String)> = Vec::new();
+fn map_files_to_keys(files: &[PathBuf]) -> HashMap<String, PathBuf> {
+    let mut map: HashMap<String, PathBuf> = HashMap::new();
     for file in files {
         match symstore::file::file_to_key(&file) {
             Ok(key) => {
                 if let Some(key) = key {
-                    map.push((file.clone(), key));
+                    let exists = map.insert(key, file.clone());
+                    if let Some(old) = exists {
+                        warn!("Overwrote {} with {}", old.display(), file.display());
+                    }
                 } else {
                     warn!("{} has no key", file.display());
                 }
@@ -97,7 +101,7 @@ fn map_files_to_keys(files: &[PathBuf]) -> Vec<(PathBuf, String)> {
 
 fn upload_to_s3(
     config: &config::S3Config,
-    files: &[(PathBuf, String)],
+    files: &HashMap<String, PathBuf>,
     dryrun: bool,
 ) -> Result<()> {
     let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
@@ -106,15 +110,15 @@ fn upload_to_s3(
 
     // Files to upload
     for file in files {
-        let full_key = format!("{}{}", &config.prefix, &file.1);
+        let full_key = format!("{}{}", &config.prefix, &file.0);
         println!(
             "uploading '{}' to s3 bucket '{}' with key '{}'",
-            file.0.display(),
+            file.1.display(),
             config.bucket,
             full_key
         );
         if !dryrun {
-            let mut f = std::fs::File::open(&file.0)?;
+            let mut f = std::fs::File::open(&file.1)?;
             let mut buffer = Vec::new();
             f.read_to_end(&mut buffer)?;
             bucket.put_object(full_key, &buffer)?;
@@ -126,7 +130,7 @@ fn upload_to_s3(
 
 fn upload_to_b2(
     config: &config::B2Config,
-    files: &[(PathBuf, String)],
+    files: &HashMap<String, PathBuf>,
     dryrun: bool,
 ) -> Result<()> {
     let b2_creds = match &config.account_id {
@@ -150,15 +154,15 @@ fn upload_to_b2(
 
     // Files to upload
     for file in files {
-        let full_key = format!("{}{}", &config.prefix, &file.1);
+        let full_key = format!("{}{}", &config.prefix, &file.0);
         println!(
             "uploading '{}' to b2 bucket '{}' with key '{}'",
-            file.0.display(),
+            file.1.display(),
             config.bucket,
             full_key
         );
         if !dryrun {
-            let mut f = std::fs::File::open(&file.0)?;
+            let mut f = std::fs::File::open(&file.1)?;
             let mut buffer = Vec::new();
             f.read_to_end(&mut buffer)?;
             bucket.put_object(full_key, &buffer)?;
@@ -170,22 +174,22 @@ fn upload_to_b2(
 
 fn copy_to_folder(
     config: &config::PathConfig,
-    files: &[(PathBuf, String)],
+    files: &HashMap<String, PathBuf>,
     dryrun: bool,
 ) -> Result<()> {
     for file in files {
-        let dest = config.path.join(&file.1);
+        let dest = config.path.join(&file.0);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent).context(format!(
                 "Failed to create destination folder '{}'",
                 parent.display()
             ))?;
         }
-        println!("Copying '{}' to '{}'", file.0.display(), dest.display());
+        println!("Copying '{}' to '{}'", file.1.display(), dest.display());
         if !dryrun {
-            std::fs::copy(&file.0, &dest).context(format!(
+            std::fs::copy(&file.1, &dest).context(format!(
                 "Failed to copy '{}' to '{}'",
-                file.0.display(),
+                file.1.display(),
                 dest.display()
             ))?;
         }
