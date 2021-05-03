@@ -1,7 +1,9 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use log::{/*error,*/ /*debug,*/ info, trace /*warn */};
 
 use std::{path::Path, path::PathBuf};
+
+use crate::config::{PathConfig, RemoteStorage, RemoteStorageType, S3Config};
 
 mod args;
 mod config;
@@ -32,15 +34,42 @@ fn main() -> Result<()> {
         let dryrun = matches.is_present(args::UPLOAD_DRY_RUN_ARG);
         let mut writable_servers = config
             .servers
-            .iter()
+            .into_iter()
             .filter(|server| server.access == config::RemoteStorageAccess::ReadWrite);
-        let server = if let Some(name) = matches.value_of(args::UPLOAD_SERVER_NAME_ARG) {
+        let server = if let Some(bucket) = matches.value_of(args::UPLOAD_S3_BUCKET_ARG) {
+            let region = matches.value_of(args::UPLOAD_S3_REGION_ARG).unwrap();
+            Some(RemoteStorage {
+                access: config::RemoteStorageAccess::ReadWrite,
+                name: None,
+                storage_type: RemoteStorageType::S3(S3Config {
+                    bucket: bucket.to_string(),
+                    region: region.to_string(),
+                    prefix: "".to_string(),
+                    profile: None,
+                }),
+            })
+        } else if let Some(output_dir) = matches.value_of(args::UPLOAD_OUTPUT_DIR_ARG) {
+            let output_dir = Path::new(output_dir);
+            if !output_dir.is_dir() {
+                bail!(
+                    "Specified output directory '{}' does not exist",
+                    output_dir.display()
+                )
+            }
+            Some(RemoteStorage {
+                access: config::RemoteStorageAccess::ReadWrite,
+                name: None,
+                storage_type: RemoteStorageType::Path(PathConfig {
+                    path: output_dir.to_path_buf(),
+                }),
+            })
+        } else if let Some(name) = matches.value_of(args::UPLOAD_SERVER_NAME_ARG) {
             writable_servers.find(|server| server.name.as_ref().unwrap_or(&"".to_owned()) == name)
         } else {
             writable_servers.next()
         };
         if let Some(server) = server {
-            upload::upload(search_path, recursive_search, server, dryrun)
+            upload::upload(search_path, recursive_search, &server, dryrun)
         } else {
             Err(anyhow!("No server specified in config for upload"))
         }
