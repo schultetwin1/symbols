@@ -16,6 +16,8 @@ pub const UPLOAD_OUTPUT_DIR_ARG: &str = "output";
 pub const UPLOAD_S3_BUCKET_ARG: &str = "s3bucket";
 pub const UPLOAD_S3_REGION_ARG: &str = "s3region";
 
+pub const DOWNLOAD_SUBCOMMAND: &str = "download";
+
 pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
     clap::App::new(APP_NAME)
         .version(env!("CARGO_PKG_VERSION"))
@@ -98,6 +100,9 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .takes_value(true)
                 )
 
+        )
+        .subcommand(
+            clap::SubCommand::with_name(DOWNLOAD_SUBCOMMAND)
         )
         .get_matches()
 }

@@ -9,6 +9,7 @@ mod args;
 mod config;
 mod symstore;
 mod upload;
+mod download;
 
 fn main() -> Result<()> {
     let matches = args::parse_args();
@@ -73,6 +74,9 @@ fn main() -> Result<()> {
         } else {
             Err(anyhow!("No server specified in config for upload"))
         }
+    } else if let Some(matches) = matches.subcommand_matches(args::DOWNLOAD_SUBCOMMAND) { 
+      info!("Download subcommand");
+      download::download()
     } else {
         Ok(())
     }
