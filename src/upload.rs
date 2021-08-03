@@ -79,7 +79,7 @@ fn find_obj_files(search_path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
 fn map_files_to_keys(files: &[PathBuf]) -> HashMap<String, PathBuf> {
     let mut map: HashMap<String, PathBuf> = HashMap::new();
     for file in files {
-        match symstore::file::file_to_key(&file) {
+        match symstore::file::file_to_key(file) {
             Ok(key) => {
                 if let Some(key) = key {
                     let exists = map.insert(key, file.clone());
@@ -153,7 +153,7 @@ fn upload_to_b2(
     dryrun: bool,
 ) -> Result<()> {
     let b2_creds = match &config.account_id {
-        Some(id) => b2creds::Credentials::from_file(None, Some(&id))?,
+        Some(id) => b2creds::Credentials::from_file(None, Some(id))?,
         None => b2creds::Credentials::default()?,
     };
 

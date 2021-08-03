@@ -35,7 +35,7 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
     };
 
     let result = match Object::parse(&buffer) {
-        Ok(obj) => object_to_key(&filename, &obj),
+        Ok(obj) => object_to_key(filename, &obj),
         Err(_err) => {
             info!("Failed to parse file {}", path.display());
             None
@@ -48,10 +48,10 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
 
 fn object_to_key(filename: &str, obj: &Object) -> Option<std::string::String> {
     match obj {
-        Object::Pe(pe) => pe_to_key(filename, &pe),
-        Object::Pdb(pdb) => Some(pdb_to_key(filename, &pdb)),
-        Object::Elf(elf) => elf_to_key(&elf),
-        Object::MachO(macho) => macho_to_key(filename, &macho),
+        Object::Pe(pe) => pe_to_key(filename, pe),
+        Object::Pdb(pdb) => Some(pdb_to_key(filename, pdb)),
+        Object::Elf(elf) => elf_to_key(elf),
+        Object::MachO(macho) => macho_to_key(filename, macho),
         _ => None,
     }
 }
