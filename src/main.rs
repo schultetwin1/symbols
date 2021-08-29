@@ -76,7 +76,37 @@ fn main() -> Result<()> {
         }
     } else if let Some(matches) = matches.subcommand_matches(args::DOWNLOAD_SUBCOMMAND) { 
       info!("Download subcommand");
-      download::download()
+      let dryrun = matches.is_present(args::DOWNLOAD_DRY_RUN_ARG);
+      let mut servers = config
+          .servers
+          .into_iter();
+      let server = if let Some(bucket) = matches.value_of(args::DOWNLOAD_S3_BUCKET_ARG) {
+          let region = matches.value_of(args::DOWNLOAD_S3_REGION_ARG).unwrap();
+          Some(RemoteStorage {
+              access: config::RemoteStorageAccess::ReadWrite,
+              name: None,
+              storage_type: RemoteStorageType::S3(S3Config {
+                  bucket: bucket.to_string(),
+                  region: region.to_string(),
+                  prefix: "".to_string(),
+                  profile: None,
+              }),
+          })
+      } else if let Some(name) = matches.value_of(args::DOWNLOAD_SERVER_NAME_ARG) {
+          servers.find(|server| server.name.as_ref().unwrap_or(&"".to_owned()) == name)
+      } else {
+          servers.next()
+      };
+      if let Some(server) = server {
+          let download_path = if let Some(path) = matches.value_of(args::DOWNLOAD_OUTPUT_DIR_ARG) {
+            Path::new(path)
+          } else {
+            Path::new("./")
+          };
+          download::download(download_path, &server, dryrun)
+      } else {
+          Err(anyhow!("No server specified in config for upload"))
+      }
     } else {
         Ok(())
     }

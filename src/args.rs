@@ -17,6 +17,12 @@ pub const UPLOAD_S3_BUCKET_ARG: &str = "s3bucket";
 pub const UPLOAD_S3_REGION_ARG: &str = "s3region";
 
 pub const DOWNLOAD_SUBCOMMAND: &str = "download";
+pub const DOWNLOAD_DRY_RUN_ARG: &str = "dry-run";
+pub const DOWNLOAD_SERVER_NAME_ARG: &str = "server";
+pub const DOWNLOAD_OUTPUT_DIR_ARG: &str = "output";
+pub const DOWNLOAD_S3_BUCKET_ARG: &str = "s3bucket";
+pub const DOWNLOAD_S3_REGION_ARG: &str = "s3region";
+pub const DOWNLOAD_SYMBOL_NAME: &str = "name";
 
 pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
     clap::App::new(APP_NAME)
@@ -67,7 +73,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .short("s")
                         .long("server")
                         .help("Name of server in config file")
-                        .long_help("Specify which server in config file to upload files too")
+                        .long_help("Specify which server in config file to upload files to")
                         .required(false)
                         .takes_value(true),
                 )
@@ -76,7 +82,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .short("o")
                         .long("output-dir")
                         .help("Output directory for symbols")
-                        .long_help("Copy all symbols to the given folder (and do not upload to any web service")
+                        .long_help("Copy all symbols to the given folder (and do not upload to any web service)")
                         .required(false)
                         .takes_value(true)
                         .conflicts_with(UPLOAD_S3_BUCKET_ARG)
@@ -84,7 +90,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .arg(
                     clap::Arg::with_name(UPLOAD_S3_BUCKET_ARG)
                         .long("s3-bucket")
-                        .help("S3 bucket to upload symbols too")
+                        .help("S3 bucket to upload symbols to")
                         .conflicts_with(UPLOAD_OUTPUT_DIR_ARG)
                         .requires(UPLOAD_S3_REGION_ARG)
                         .required(false)
@@ -93,7 +99,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .arg(
                     clap::Arg::with_name(UPLOAD_S3_REGION_ARG)
                         .long("s3-region")
-                        .help("S3 region to upload symbols too")
+                        .help("S3 region to upload symbols to")
                         .conflicts_with(UPLOAD_OUTPUT_DIR_ARG)
                         .requires(UPLOAD_S3_BUCKET_ARG)
                         .required(false)
@@ -103,6 +109,61 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
         )
         .subcommand(
             clap::SubCommand::with_name(DOWNLOAD_SUBCOMMAND)
+            .about("Download debug info files from a debug server")
+            .arg(
+                clap::Arg::with_name(DOWNLOAD_DRY_RUN_ARG)
+                    .short("d")
+                    .long("dry-run")
+                    .help("Fake the download part")
+                    .long_help(
+                        "List the files that would be downloaded, but does not run the download",
+                    ),
+            )
+            .arg(
+                clap::Arg::with_name(DOWNLOAD_SERVER_NAME_ARG)
+                    .short("s")
+                    .long("server")
+                    .help("Name of server in config file")
+                    .long_help("Specify which server in config file to upload files to")
+                    .required(false)
+                    .takes_value(true),
+            )
+            .arg(
+                clap::Arg::with_name(DOWNLOAD_OUTPUT_DIR_ARG)
+                    .short("o")
+                    .long("output-dir")
+                    .help("Output directory for symbols")
+                    .long_help("Copy all symbols to the given folder (and do not upload to any web service")
+                    .required(false)
+                    .takes_value(true)
+                    .conflicts_with(UPLOAD_S3_BUCKET_ARG)
+            )
+            .arg(
+                clap::Arg::with_name(DOWNLOAD_S3_BUCKET_ARG)
+                    .long("s3-bucket")
+                    .help("S3 bucket to upload symbols to")
+                    .conflicts_with(UPLOAD_OUTPUT_DIR_ARG)
+                    .requires(UPLOAD_S3_REGION_ARG)
+                    .required(false)
+                    .takes_value(true)
+            )
+            .arg(
+                clap::Arg::with_name(DOWNLOAD_S3_REGION_ARG)
+                    .long("s3-region")
+                    .help("S3 region to upload symbols to")
+                    .conflicts_with(UPLOAD_OUTPUT_DIR_ARG)
+                    .requires(UPLOAD_S3_BUCKET_ARG)
+                    .required(false)
+                    .takes_value(true)
+            )
+            .arg(
+                clap::Arg::with_name(DOWNLOAD_SYMBOL_NAME)
+                    .long("name")
+                    .short("n")
+                    .help("Name of the symbol to download")
+                    .required(true)
+                    .takes_value(true)
+            )
         )
         .get_matches()
 }
