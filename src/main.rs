@@ -7,6 +7,7 @@ use crate::config::{PathConfig, RemoteStorage, RemoteStorageType, S3Config};
 
 mod args;
 mod config;
+mod login;
 mod symstore;
 mod upload;
 
@@ -73,6 +74,15 @@ fn main() -> Result<()> {
         } else {
             Err(anyhow!("No server specified in config for upload"))
         }
+    } else if let Some(matches) = matches.subcommand_matches(args::LOGIN_SUBCOMMAND) {
+        info!("Login subcommand");
+        let service_name = matches.value_of(args::LOGIN_SERVICE_ARG).unwrap();
+        match service_name {
+            "github" => login::github_login()?,
+            "symbolserver" => bail!("Symbol Server Login unimplemented!"),
+            _ => bail!("Unknown service '{}'", service_name),
+        };
+        Ok(())
     } else {
         Ok(())
     }

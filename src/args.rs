@@ -16,6 +16,9 @@ pub const UPLOAD_OUTPUT_DIR_ARG: &str = "output";
 pub const UPLOAD_S3_BUCKET_ARG: &str = "s3bucket";
 pub const UPLOAD_S3_REGION_ARG: &str = "s3region";
 
+pub const LOGIN_SUBCOMMAND: &str = "login";
+pub const LOGIN_SERVICE_ARG: &str = "service";
+
 pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
     clap::App::new(APP_NAME)
         .version(env!("CARGO_PKG_VERSION"))
@@ -37,7 +40,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                 .takes_value(true),
         )
         .subcommand(
-            clap::SubCommand::with_name(UPLOAD_SUBCOMMAND)
+          clap::SubCommand::with_name(UPLOAD_SUBCOMMAND)
                 .about("Upload the debug info files to a debug server")
                 .arg(
                     clap::Arg::with_name(UPLOAD_PATH_ARG)
@@ -98,6 +101,18 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .takes_value(true)
                 )
 
+        )
+        .subcommand(
+            clap::SubCommand::with_name(LOGIN_SUBCOMMAND)
+            .about("Login to web services in order to download sources / symbols")
+            .arg(
+                clap::Arg::with_name(LOGIN_SERVICE_ARG)
+                    .help("The service to log in to")
+                    .possible_values(&["github", "symbolserver"])
+                    .default_value("symbolserver")
+                    .required(false)
+                    .index(1),
+                )
         )
         .get_matches()
 }

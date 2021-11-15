@@ -16,10 +16,16 @@ symbolic-debuginfo = "8.0"
 tokio = { version = "0.2.0", features = ["full"] }
 hex = "0.4.0"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 toml = "0.5"
 url = "2.2"
 directories = "3.0"
 walkdir = "2"
+open = "1"
+rand = "0.8"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+strum = { version = "0.22", features = ["derive"] }
+keyring = "0.10"
 
 [dependencies.rusqlite]
 version = "0.24.2"
