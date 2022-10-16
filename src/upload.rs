@@ -1,14 +1,26 @@
-use std::collections::HashMap;
-use std::io::Read;
+use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use ignore::WalkBuilder;
 use log::{debug, warn};
+use serde::Serialize;
+use sha2::{Digest, Sha256};
 use symbolic_debuginfo::FileFormat;
 
 use crate::config;
 use crate::symstore;
+use crate::symstore::file::{FileInfo, FileType, ResourceType};
+
+#[derive(Serialize)]
+struct SymbolServerUploadRequest {
+    pub file_type: FileType,
+    pub file_size: usize,
+    pub file_name: String,
+    pub identifier: String,
+    pub resource_type: ResourceType,
+    pub sha256: String,
+}
 
 pub fn upload(
     search_path: &Path,
@@ -16,8 +28,8 @@ pub fn upload(
     server: &config::RemoteStorage,
     dryrun: bool,
 ) -> Result<()> {
-    let files = find_obj_files(search_path, recursive)?;
-    let files = map_files_to_keys(&files);
+    let obj_files = find_obj_files(search_path, recursive)?;
+    let files = collet_file_info(&obj_files);
     match &server.storage_type {
         config::RemoteStorageType::Http(c) => Err(anyhow!(
             "Upload to HTTP server ({}) not yet implemented!",
@@ -25,6 +37,7 @@ pub fn upload(
         )),
         config::RemoteStorageType::S3(c) => upload_to_s3(c, &files, dryrun),
         config::RemoteStorageType::B2(c) => upload_to_b2(c, &files, dryrun),
+        config::RemoteStorageType::SymbolServer(c) => upload_to_symbolserver(c, &files, dryrun),
         config::RemoteStorageType::Path(c) => copy_to_folder(c, &files, dryrun),
     }
 }
@@ -82,40 +95,38 @@ fn find_obj_files(search_path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
     Ok(files)
 }
 
-fn map_files_to_keys(files: &[PathBuf]) -> HashMap<String, PathBuf> {
-    let mut map: HashMap<String, PathBuf> = HashMap::new();
-    for file in files {
-        match symstore::file::file_to_key(file) {
-            Ok(key) => {
-                if let Some(key) = key {
-                    let exists = map.insert(key, file.clone());
-                    if let Some(old) = exists {
-                        warn!("Overwrote {} with {}", old.display(), file.display());
-                    }
+fn collet_file_info(files: &[PathBuf]) -> Vec<FileInfo> {
+    files
+        .iter()
+        .filter_map(|path| match symstore::file::file_to_info(path) {
+            Ok(info) => {
+                if let Some(info) = info {
+                    Some(info)
                 } else {
-                    warn!("{} has no key", file.display());
+                    warn!("{} has no key", path.display());
+                    None
                 }
             }
             Err(_err) => {
-                println!("Error parsing: {}", file.display());
+                println!("Error parsing: {}", path.display());
+                None
             }
-        }
-    }
-
-    map
+        })
+        .collect()
 }
 
 async fn upload_to_s3_helper(
     prefix: &str,
-    files: &HashMap<String, PathBuf>,
+    files: &[FileInfo],
     dryrun: bool,
     bucket: s3::bucket::Bucket,
 ) -> Result<()> {
     for file in files {
-        let full_key = format!("{}{}", prefix, &file.0);
+        let key = file.key();
+        let full_key = format!("{}{}", prefix, &key);
         println!(
             "uploading '{}' to s3 bucket '{}' with key '{}'",
-            file.1.display(),
+            file.path.display(),
             bucket.name,
             full_key
         );
@@ -124,13 +135,13 @@ async fn upload_to_s3_helper(
             debug!("Head Object for {} returned {}", full_key, code);
             if code != 200 {
                 bucket
-                    .put_object_stream(&file.1, &full_key)
+                    .put_object_stream(&file.path, &full_key)
                     .await
-                    .context(format!("Failed to upload '{}' to S3", file.1.display()))?;
+                    .context(format!("Failed to upload '{}' to S3", file.path.display()))?;
             } else {
                 warn!(
                     "Skipping {} -> {} since the key already exists on server",
-                    file.1.display(),
+                    file.path.display(),
                     full_key
                 );
             }
@@ -140,11 +151,7 @@ async fn upload_to_s3_helper(
     Ok(())
 }
 
-fn upload_to_s3(
-    config: &config::S3Config,
-    files: &HashMap<String, PathBuf>,
-    dryrun: bool,
-) -> Result<()> {
+fn upload_to_s3(config: &config::S3Config, files: &[FileInfo], dryrun: bool) -> Result<()> {
     let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
     let region = config.region.parse()?;
     let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
@@ -153,11 +160,7 @@ fn upload_to_s3(
     rt.block_on(upload_to_s3_helper(&config.prefix, files, dryrun, bucket))
 }
 
-fn upload_to_b2(
-    config: &config::B2Config,
-    files: &HashMap<String, PathBuf>,
-    dryrun: bool,
-) -> Result<()> {
+fn upload_to_b2(config: &config::B2Config, files: &[FileInfo], dryrun: bool) -> Result<()> {
     let b2_creds = match &config.account_id {
         Some(id) => b2creds::Credentials::from_file(None, Some(id))?,
         None => b2creds::Credentials::default()?,
@@ -181,24 +184,155 @@ fn upload_to_b2(
     rt.block_on(upload_to_s3_helper("", files, dryrun, bucket))
 }
 
-fn copy_to_folder(
-    config: &config::PathConfig,
-    files: &HashMap<String, PathBuf>,
+fn upload_to_symbolserver(
+    config: &config::SymbolServerConfig,
+    files: &[FileInfo],
     dryrun: bool,
 ) -> Result<()> {
+    const SERVICE: &str = "com.symboserver.symbols";
+    const USERNAME: &str = "symbolserver";
+    let entry = keyring::Entry::new(SERVICE, USERNAME);
+    let token = entry.get_password()?;
+    let client = reqwest::blocking::Client::builder().build().unwrap();
+
     for file in files {
-        let dest = config.path.join(&file.0);
+        println!(
+            "uploading '{}' to symbolserver with key '{}'",
+            file.path.display(),
+            file.key()
+        );
+        if !dryrun {
+            let mut f = match std::fs::File::open(&file.path) {
+                Ok(f) => f,
+                Err(error) => {
+                    warn!(
+                        "Failed to upload {}. Could not open file due to error: {}",
+                        file.path.display(),
+                        error
+                    );
+                    continue;
+                }
+            };
+            let mut hasher = Sha256::new();
+            if let Err(error) = std::io::copy(&mut f, &mut hasher) {
+                warn!(
+                    "Failed to read '{}' due to {:?} in order to generate hash. Skipping upload",
+                    file.path.display(),
+                    error
+                );
+                continue;
+            }
+            let hash = hasher.finalize();
+            f.seek(std::io::SeekFrom::Start(0)).unwrap();
+
+            let url = config
+                .url
+                .as_deref()
+                .unwrap_or("https://api.symbolserver.com");
+
+            let request = SymbolServerUploadRequest {
+                file_name: file.path.file_name().unwrap().to_str().unwrap().to_string(),
+                file_size: file.file_size,
+                file_type: file.file_type,
+                identifier: file.identifier.clone(),
+                resource_type: file.resource_type,
+                sha256: data_encoding::HEXUPPER.encode(&hash),
+            };
+
+            let res = match client
+                .post(format!("{}/symbols/{}/upload/create", url, config.project))
+                .bearer_auth(&token)
+                .json(&request)
+                .send()
+            {
+                Ok(response) => response,
+                Err(error) => {
+                    warn!(
+                        "Failed to upload {}. Upload failed due to error: {}",
+                        file.path.display(),
+                        error
+                    );
+                    continue;
+                }
+            };
+
+            if !res.status().is_success() {
+                warn!(
+                    "Upload of '{}' did not succeed. {}",
+                    file.path.display(),
+                    res.text().unwrap()
+                );
+                continue;
+            }
+
+            let signed_url = res.text().unwrap();
+            let res = match client.put(&signed_url).body(f).send() {
+                Ok(response) => response,
+                Err(error) => {
+                    warn!(
+                        "Failed to upload {} to presigned url {}. Upload failed due to error: {}",
+                        file.path.display(),
+                        signed_url,
+                        error
+                    );
+                    continue;
+                }
+            };
+
+            if !res.status().is_success() {
+                warn!(
+                    "Upload of '{}' via pre-signed URL did not succeed. {}",
+                    file.path.display(),
+                    res.text().unwrap()
+                );
+                continue;
+            }
+
+            let res = match client
+                .post(format!("{}/symbols/{}/upload/finish", url, config.project))
+                .bearer_auth(&token)
+                .json(&request)
+                .send()
+            {
+                Ok(response) => response,
+                Err(error) => {
+                    warn!(
+                        "Failed to upload {}. Upload failed due to error: {}",
+                        file.path.display(),
+                        error
+                    );
+                    continue;
+                }
+            };
+
+            if !res.status().is_success() {
+                warn!(
+                    "Upload of '{}' failed to be marked successful. {}",
+                    file.path.display(),
+                    res.text().unwrap()
+                );
+                continue;
+            }
+        }
+        println!("Uploaded '{}' to symbolserver.com", file.path.display());
+    }
+    Ok(())
+}
+
+fn copy_to_folder(config: &config::PathConfig, files: &[FileInfo], dryrun: bool) -> Result<()> {
+    for file in files {
+        let dest = config.path.join(&file.key());
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent).context(format!(
                 "Failed to create destination folder '{}'",
                 parent.display()
             ))?;
         }
-        println!("Copying '{}' to '{}'", file.1.display(), dest.display());
+        println!("Copying '{}' to '{}'", file.path.display(), dest.display());
         if !dryrun {
-            std::fs::copy(&file.1, &dest).context(format!(
+            std::fs::copy(&file.path, &dest).context(format!(
                 "Failed to copy '{}' to '{}'",
-                file.1.display(),
+                file.path.display(),
                 dest.display()
             ))?;
         }

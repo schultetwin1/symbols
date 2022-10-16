@@ -79,7 +79,7 @@ fn main() -> Result<()> {
         let service_name = matches.value_of(args::LOGIN_SERVICE_ARG).unwrap();
         match service_name {
             "github" => login::github_login()?,
-            "symbolserver" => bail!("Symbol Server Login unimplemented!"),
+            "symbolserver" => login::symbolserver_login()?,
             _ => bail!("Unknown service '{}'", service_name),
         };
         Ok(())

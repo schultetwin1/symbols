@@ -1,18 +1,80 @@
 use log::{/*error,*/ /*debug,*/ info, trace, warn};
+use serde::Serialize;
+use std::convert::TryInto;
 use std::fs::File;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use symbolic_debuginfo::Object;
 
 use crate::symstore::SymStoreErr;
 
-pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>, SymStoreErr> {
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Serialize)]
+pub enum FileType {
+    Pe,
+    Pdb,
+    Elf,
+    MachO,
+}
+
+#[derive(Clone, Copy, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ResourceType {
+    Executable,
+    DebugInfo,
+}
+
+#[derive(Eq, Hash, PartialEq)]
+pub struct FileInfo {
+    pub path: PathBuf,
+    pub file_type: FileType,
+    pub file_size: usize,
+    pub identifier: String,
+    pub resource_type: ResourceType,
+}
+
+impl FileInfo {
+    pub fn key(&self) -> String {
+        match self.file_type {
+            FileType::Elf => match self.resource_type {
+                ResourceType::Executable => {
+                    format!("buildid/{}/executable", self.identifier)
+                }
+                ResourceType::DebugInfo => {
+                    format!("buildid/{}/debuginfo", self.identifier)
+                }
+            },
+            FileType::MachO => match self.resource_type {
+                ResourceType::Executable => {
+                    format!(
+                        "{filename}/mach-uuid-{note}/{filename}",
+                        filename = self.path.file_name().unwrap().to_str().unwrap(),
+                        note = self.identifier
+                    )
+                }
+                ResourceType::DebugInfo => {
+                    format!(
+                        "_.dwarf/mach-uuid-sym-{note}/_.dwarf",
+                        note = self.identifier
+                    )
+                }
+            },
+            FileType::Pdb | FileType::Pe => {
+                format!(
+                    "{filename}/{identifier}/{filename}",
+                    filename = self.path.file_name().unwrap().to_str().unwrap(),
+                    identifier = self.identifier
+                )
+            }
+        }
+    }
+}
+
+pub fn file_to_info(path: &std::path::Path) -> Result<Option<FileInfo>, SymStoreErr> {
     trace!("Inspecting file {}", path.display());
     if !path.is_file() {
         return Err(SymStoreErr::NotAFile);
     }
-
-    let filename = path.file_name().unwrap().to_str().unwrap();
 
     let mut file = match File::open(path) {
         Ok(file) => file,
@@ -23,7 +85,9 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
         }
     };
 
-    let mut buffer = Vec::new();
+    let filesize: usize = file.metadata().unwrap().len().try_into().unwrap();
+
+    let mut buffer = Vec::with_capacity(filesize);
 
     match file.read_to_end(&mut buffer) {
         Ok(_) => (),
@@ -35,81 +99,106 @@ pub fn file_to_key(path: &std::path::Path) -> Result<Option<std::string::String>
     };
 
     let result = match Object::parse(&buffer) {
-        Ok(obj) => object_to_key(filename, &obj),
+        Ok(obj) => object_to_info(path, filesize, &obj),
         Err(_err) => {
             info!("Failed to parse file {}", path.display());
             None
         }
     };
 
-    drop(buffer);
     Ok(result)
 }
 
-fn object_to_key(filename: &str, obj: &Object) -> Option<std::string::String> {
+fn object_to_info(path: &Path, filesize: usize, obj: &Object) -> Option<FileInfo> {
     match obj {
-        Object::Pe(pe) => pe_to_key(filename, pe),
-        Object::Pdb(pdb) => Some(pdb_to_key(filename, pdb)),
-        Object::Elf(elf) => elf_to_key(elf),
-        Object::MachO(macho) => macho_to_key(filename, macho),
+        Object::Pe(pe) => pe_to_info(path, filesize, pe),
+        Object::Pdb(pdb) => Some(pdb_to_info(path, filesize, pdb)),
+        Object::Elf(elf) => elf_to_info(path, filesize, elf),
+        Object::MachO(macho) => macho_to_info(path, filesize, macho),
         _ => None,
     }
 }
 
-fn pe_to_key(filename: &str, pe: &symbolic_debuginfo::pe::PeObject) -> Option<std::string::String> {
-    if let Some(code_id) = pe.code_id() {
-        let key = format!(
-            "{filename}/{codeid}/{filename}",
-            filename = filename,
-            codeid = code_id.as_str()
-        );
-        Some(key)
-    } else {
-        None
-    }
+fn pe_to_info(
+    path: &Path,
+    filesize: usize,
+    pe: &symbolic_debuginfo::pe::PeObject,
+) -> Option<FileInfo> {
+    pe.code_id().map(|code_id| FileInfo {
+        path: path.to_path_buf(),
+        file_type: FileType::Pe,
+        file_size: filesize,
+        identifier: code_id.to_string(),
+        resource_type: ResourceType::Executable,
+    })
 }
 
-fn pdb_to_key(filename: &str, pdb: &symbolic_debuginfo::pdb::PdbObject) -> std::string::String {
-    let key = format!(
-        "{filename}/{sig:X}{age:X}/{filename}",
-        filename = filename,
+fn pdb_to_info(path: &Path, filesize: usize, pdb: &symbolic_debuginfo::pdb::PdbObject) -> FileInfo {
+    let id = format!(
+        "{sig:X}{age:X}",
         sig = pdb.debug_id().uuid().to_simple_ref(),
         age = pdb.debug_id().appendix()
     );
-    key
+    FileInfo {
+        path: path.to_path_buf(),
+        file_type: FileType::Pdb,
+        file_size: filesize,
+        identifier: id,
+        resource_type: ResourceType::DebugInfo,
+    }
 }
 
-fn elf_to_key(elf: &symbolic_debuginfo::elf::ElfObject) -> Option<std::string::String> {
+fn elf_to_info(
+    path: &Path,
+    filesize: usize,
+    elf: &symbolic_debuginfo::elf::ElfObject,
+) -> Option<FileInfo> {
     if let Some(code_id) = elf.code_id() {
-        let key = if elf.has_debug_info() {
-            format!("buildid/{note}/debuginfo", note = code_id.as_ref())
+        if elf.has_debug_info() {
+            Some(FileInfo {
+                path: path.to_path_buf(),
+                file_type: FileType::Elf,
+                file_size: filesize,
+                identifier: code_id.to_string(),
+                resource_type: ResourceType::DebugInfo,
+            })
         } else {
-            format!("buildid/{note}/executable", note = code_id.as_ref())
-        };
-        Some(key)
+            Some(FileInfo {
+                path: path.to_path_buf(),
+                file_type: FileType::Elf,
+                file_size: filesize,
+                identifier: code_id.to_string(),
+                resource_type: ResourceType::Executable,
+            })
+        }
     } else {
         None
     }
 }
 
-fn macho_to_key(
-    filename: &str,
+fn macho_to_info(
+    path: &Path,
+    filesize: usize,
     macho: &symbolic_debuginfo::macho::MachObject,
-) -> Option<std::string::String> {
+) -> Option<FileInfo> {
     if let Some(code_id) = macho.code_id() {
-        let key = if macho.has_debug_info() {
-            format!(
-                "{filename}/mach-uuid-{note}/{filename}",
-                filename = filename,
-                note = code_id.as_ref()
-            )
+        if macho.has_debug_info() {
+            Some(FileInfo {
+                path: path.to_path_buf(),
+                file_type: FileType::MachO,
+                file_size: filesize,
+                identifier: code_id.to_string(),
+                resource_type: ResourceType::DebugInfo,
+            })
         } else {
-            format!(
-                "_.dwarf/mach-uuid-sym{note}/_.dwarf",
-                note = code_id.as_ref()
-            )
-        };
-        Some(key)
+            Some(FileInfo {
+                path: path.to_path_buf(),
+                file_type: FileType::MachO,
+                file_size: filesize,
+                identifier: code_id.to_string(),
+                resource_type: ResourceType::Executable,
+            })
+        }
     } else {
         None
     }

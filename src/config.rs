@@ -41,6 +41,12 @@ pub struct B2Config {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct SymbolServerConfig {
+    pub project: String,
+    pub url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct HttpConfig {
     pub url: String,
 }
@@ -50,7 +56,7 @@ pub struct PathConfig {
     pub path: PathBuf,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, Eq, PartialEq)]
 pub enum RemoteStorageAccess {
     #[serde(alias = "read")]
     Read,
@@ -79,6 +85,9 @@ pub enum RemoteStorageType {
 
     #[serde(alias = "b2")]
     B2(B2Config),
+
+    #[serde(alias = "symsrv")]
+    SymbolServer(SymbolServerConfig),
 
     #[serde(alias = "path")]
     Path(PathConfig),

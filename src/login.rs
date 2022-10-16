@@ -101,7 +101,19 @@ struct GitHubAccesCheckResponse {
     scope: String,
 }
 
+pub fn symbolserver_login() -> Result<()> {
+    const SERVICE: &str = "com.symboserver.symbols";
+    const USERNAME: &str = "symbolserver";
+    let token = rpassword::prompt_password("Enter symbolserver.com API token: ")?;
+    let entry = keyring::Entry::new(SERVICE, USERNAME);
+    entry.set_password(&token)?;
+
+    Ok(())
+}
+
 pub fn github_login() -> Result<()> {
+    const SERVICE: &str = "com.symboserver.symbols";
+    const USERNAME: &str = "github";
     let client = reqwest::blocking::Client::new();
 
     let codes = request_device_and_user_verification_codes(&client)?;
@@ -109,8 +121,8 @@ pub fn github_login() -> Result<()> {
     open_browser(&codes.verification_uri);
     let token = poll_for_token(&client, codes.device_code, codes.interval)?;
 
-    let keyring = keyring::Keyring::new("com.symbolserver.symbols", "github");
-    keyring.set_password(&token)?;
+    let entry = keyring::Entry::new(SERVICE, USERNAME);
+    entry.set_password(&token)?;
 
     Ok(())
 }
