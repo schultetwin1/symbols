@@ -156,7 +156,7 @@ fn upload_to_s3(config: &config::S3Config, files: &[FileInfo], dryrun: bool) -> 
     let region = config.region.parse()?;
     let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
 
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(upload_to_s3_helper(&config.prefix, files, dryrun, bucket))
 }
 
@@ -180,7 +180,7 @@ fn upload_to_b2(config: &config::B2Config, files: &[FileInfo], dryrun: bool) -> 
 
     let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
 
-    let mut rt = tokio::runtime::Runtime::new().unwrap();
+    let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(upload_to_s3_helper("", files, dryrun, bucket))
 }
 
