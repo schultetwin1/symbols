@@ -24,8 +24,8 @@ walkdir = "2"
 open = "4.1.0"
 rand = "0.8"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
-strum = { version = "0.22", features = ["derive"] }
-keyring = "1"
+strum = { version = "0.24.1", features = ["derive"] }
+keyring = "2.0.3"
 rpassword = "7"
 sha2 = "0.10"
 data-encoding = "2.3"

@@ -105,7 +105,7 @@ pub fn symbolserver_login() -> Result<()> {
     const SERVICE: &str = "com.symboserver.symbols";
     const USERNAME: &str = "symbolserver";
     let token = rpassword::prompt_password("Enter symbolserver.com API token: ")?;
-    let entry = keyring::Entry::new(SERVICE, USERNAME);
+    let entry = keyring::Entry::new(SERVICE, USERNAME)?;
     entry.set_password(&token)?;
 
     Ok(())
@@ -121,7 +121,7 @@ pub fn github_login() -> Result<()> {
     open_browser(&codes.verification_uri);
     let token = poll_for_token(&client, codes.device_code, codes.interval)?;
 
-    let entry = keyring::Entry::new(SERVICE, USERNAME);
+    let entry = keyring::Entry::new(SERVICE, USERNAME)?;
     entry.set_password(&token)?;
 
     Ok(())

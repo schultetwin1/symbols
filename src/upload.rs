@@ -192,7 +192,7 @@ fn upload_to_symbolserver(
 ) -> Result<()> {
     const SERVICE: &str = "com.symboserver.symbols";
     const USERNAME: &str = "symbolserver";
-    let entry = keyring::Entry::new(SERVICE, USERNAME);
+    let entry = keyring::Entry::new(SERVICE, USERNAME)?;
     let token = entry.get_password()?;
     let client = reqwest::blocking::Client::builder().build().unwrap();
 
