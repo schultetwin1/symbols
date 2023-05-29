@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
-b2creds = "0.1"
+b2creds = "0.2.0"
 clap = "4.3"
 log = "0.4"
 pretty_env_logger = "0.5"
@@ -31,5 +31,5 @@ sha2 = "0.10"
 data-encoding = "2.4.0"
 
 [dependencies.rusqlite]
-version = "0.24.2"
+version = "0.29.0"
 features = ["bundled"]
