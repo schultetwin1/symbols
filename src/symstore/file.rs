@@ -136,7 +136,7 @@ fn pe_to_info(
 fn pdb_to_info(path: &Path, filesize: usize, pdb: &symbolic_debuginfo::pdb::PdbObject) -> FileInfo {
     let id = format!(
         "{sig:X}{age:X}",
-        sig = pdb.debug_id().uuid().to_simple_ref(),
+        sig = pdb.debug_id().uuid().as_simple(),
         age = pdb.debug_id().appendix()
     );
     FileInfo {
