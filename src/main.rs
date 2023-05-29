@@ -16,7 +16,7 @@ fn main() -> Result<()> {
     initialize_logger(&matches);
     trace!("logger initialized");
 
-    let config = if let Some(path) = matches.value_of(args::CONFIG_FILE_ARG) {
+    let config = if let Some(path) = matches.get_one::<String>(args::CONFIG_FILE_ARG) {
         let path = PathBuf::from(path);
         config::Config::from(&path)
             .context(format!("Failed to read config from '{}'", path.display()))?
@@ -28,17 +28,19 @@ fn main() -> Result<()> {
         info!("Upload subcommand");
         let search_path = Path::new(
             matches
-                .value_of(args::UPLOAD_PATH_ARG)
+                .get_one::<String>(args::UPLOAD_PATH_ARG)
                 .context("Unable to find upload path argument")?,
         );
-        let recursive_search = matches.is_present(args::UPLOAD_RECUSRIVE_ARG);
-        let dryrun = matches.is_present(args::UPLOAD_DRY_RUN_ARG);
+        let recursive_search = matches.contains_id(args::UPLOAD_RECUSRIVE_ARG);
+        let dryrun = matches.contains_id(args::UPLOAD_DRY_RUN_ARG);
         let mut writable_servers = config
             .servers
             .into_iter()
             .filter(|server| server.access == config::RemoteStorageAccess::ReadWrite);
-        let server = if let Some(bucket) = matches.value_of(args::UPLOAD_S3_BUCKET_ARG) {
-            let region = matches.value_of(args::UPLOAD_S3_REGION_ARG).unwrap();
+        let server = if let Some(bucket) = matches.get_one::<String>(args::UPLOAD_S3_BUCKET_ARG) {
+            let region = matches
+                .get_one::<String>(args::UPLOAD_S3_REGION_ARG)
+                .unwrap();
             Some(RemoteStorage {
                 access: config::RemoteStorageAccess::ReadWrite,
                 name: None,
@@ -49,7 +51,7 @@ fn main() -> Result<()> {
                     profile: None,
                 }),
             })
-        } else if let Some(output_dir) = matches.value_of(args::UPLOAD_OUTPUT_DIR_ARG) {
+        } else if let Some(output_dir) = matches.get_one::<String>(args::UPLOAD_OUTPUT_DIR_ARG) {
             let output_dir = Path::new(output_dir);
             if !output_dir.is_dir() {
                 bail!(
@@ -64,7 +66,7 @@ fn main() -> Result<()> {
                     path: output_dir.to_path_buf(),
                 }),
             })
-        } else if let Some(name) = matches.value_of(args::UPLOAD_SERVER_NAME_ARG) {
+        } else if let Some(name) = matches.get_one::<String>(args::UPLOAD_SERVER_NAME_ARG) {
             writable_servers.find(|server| server.name.as_ref().unwrap_or(&"".to_owned()) == name)
         } else {
             writable_servers.next()
@@ -76,8 +78,8 @@ fn main() -> Result<()> {
         }
     } else if let Some(matches) = matches.subcommand_matches(args::LOGIN_SUBCOMMAND) {
         info!("Login subcommand");
-        let service_name = matches.value_of(args::LOGIN_SERVICE_ARG).unwrap();
-        match service_name {
+        let service_name = matches.get_one::<String>(args::LOGIN_SERVICE_ARG).unwrap();
+        match service_name.as_str() {
             "github" => login::github_login()?,
             "symbolserver" => login::symbolserver_login()?,
             _ => bail!("Unknown service '{}'", service_name),
@@ -92,7 +94,7 @@ fn initialize_logger(matches: &clap::ArgMatches) {
     // Vary the output based on how many times the user used the "verbose" flag
     // (i.e. 'myprog -v -v -v' or 'myprog -vvv' vs 'myprog -v'
     let mut logger = pretty_env_logger::formatted_builder();
-    let logger = match matches.occurrences_of(args::VERBOSITY_ARG) {
+    let logger = match matches.get_count(args::VERBOSITY_ARG) {
         0 => logger.filter_level(log::LevelFilter::Error),
         1 => logger.filter_level(log::LevelFilter::Warn),
         2 => logger.filter_level(log::LevelFilter::Info),
