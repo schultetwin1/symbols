@@ -11,7 +11,7 @@ clap = "4.3"
 log = "0.4"
 pretty_env_logger = "0.5"
 ignore = "0.4"
-rust-s3 = { version = "0.26.4", default-features = false, features = ["rustls-tls"] }
+rust-s3 = { version = "0.33", default-features = false, features = ["tokio-rustls-tls"] }
 symbolic-debuginfo = "8.0"
 tokio = { version = "1.24.2", features = ["full"] }
 hex = "0.4.0"

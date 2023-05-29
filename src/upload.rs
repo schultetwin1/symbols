@@ -131,11 +131,12 @@ async fn upload_to_s3_helper(
             full_key
         );
         if !dryrun {
+            let mut reader = tokio::fs::File::open(&file.path).await?;
             let (_head_object_result, code) = bucket.head_object(&full_key).await?;
             debug!("Head Object for {} returned {}", full_key, code);
             if code != 200 {
                 bucket
-                    .put_object_stream(&file.path, &full_key)
+                    .put_object_stream(&mut reader, &full_key)
                     .await
                     .context(format!("Failed to upload '{}' to S3", file.path.display()))?;
             } else {
