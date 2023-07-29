@@ -12,20 +12,20 @@ log = "0.4"
 pretty_env_logger = "0.5"
 ignore = "0.4"
 rust-s3 = { version = "0.33", default-features = false, features = ["tokio-rustls-tls"] }
-symbolic-debuginfo = "12.1.5"
-tokio = { version = "1.28.2", features = ["full"] }
-hex = "0.4.0"
+symbolic-debuginfo = "12.3.0"
+tokio = { version = "1.29.1", features = ["full"] }
+hex = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-toml = "0.7.4"
-url = "2.3.1"
+toml = "0.7.6"
+url = "2.4.0"
 directories = "5.0.1"
 walkdir = "2"
-open = "4.1.0"
+open = "4.2.0"
 rand = "0.8"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 strum = { version = "0.24.1", features = ["derive"] }
-keyring = "2.0.3"
+keyring = "2.0.5"
 rpassword = "7"
 sha2 = "0.10"
 data-encoding = "2.4.0"
