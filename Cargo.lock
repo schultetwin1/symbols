@@ -1424,9 +1424,9 @@ checksum = "f665ee40bc4a3c5590afb1e9677db74a508659dfd71e126420da8274909a0167"
 
 [[package]]
 name = "memmap2"
-version = "0.5.10"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83faa42c0a078c393f6b29d5db232d8be22776a891f8f56e5284faee4a20b327"
+checksum = "43a5a03cefb0d953ec0be133036f14e109412fa594edc2f77227249db66cc3ed"
 dependencies = [
  "libc",
 ]
@@ -2355,6 +2355,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "semver"
+version = "1.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "836fa6a3e1e547f9a2c4040802ec865b5d85f4014efe00555d7090a3dcaa1090"
+
+[[package]]
 name = "serde"
 version = "1.0.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2563,9 +2569,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "symbolic-common"
-version = "12.4.1"
+version = "12.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fac08504d60cf5bdffeb8a6a028f1a4868a5da1098bb19eb46239440039163fb"
+checksum = "6d3aa424281de488c1ddbaffb55a421ad87d04b0fdd5106e7e71d748c0c71ea6"
 dependencies = [
  "debugid",
  "memmap2",
@@ -2575,9 +2581,9 @@ dependencies = [
 
 [[package]]
 name = "symbolic-debuginfo"
-version = "12.4.1"
+version = "12.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f197ae562da1dec76244875041cbd244e517bf6bc88a9537ae874c555b019c7"
+checksum = "b99188793b28b6d21a23dad741830c51390b3078ebb5efce68877a5fc66d5eee"
 dependencies = [
  "debugid",
  "dmsort",
@@ -2607,12 +2613,12 @@ dependencies = [
 
 [[package]]
 name = "symbolic-ppdb"
-version = "12.4.1"
+version = "12.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13d6a54ddbea124f82a17564effd044078054f8bab037eb9fcdfee776d5bfbde"
+checksum = "980d2e18865e9f6e9417d93d599c864b5172cfb0b8a3baa3024f40ee9743c5a4"
 dependencies = [
  "flate2",
- "indexmap 1.9.3",
+ "indexmap 2.0.2",
  "serde",
  "serde_json",
  "symbolic-common",
@@ -3150,12 +3156,12 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.102.0"
+version = "0.113.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48134de3d7598219ab9eaf6b91b15d8e50d31da76b8519fe4ecfcec2cf35104b"
+checksum = "286049849b5a5bd09a8773171be96824afabffc7cc3df6caaf33a38db6cd07ae"
 dependencies = [
- "indexmap 1.9.3",
- "url",
+ "indexmap 2.0.2",
+ "semver",
 ]
 
 [[package]]
