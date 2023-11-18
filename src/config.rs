@@ -133,7 +133,10 @@ pub fn read_config(path: &path::Path) -> std::io::Result<Config> {
     info!("Reading config from {}", path.display());
     let content = std::fs::read_to_string(path)?;
     let config: Config = toml::from_str(&content).map_err(|error| {
-        warn!("Failed to read config file {}. Error: {error:?}", path.display());
+        warn!(
+            "Failed to read config file {}. Error: {error:?}",
+            path.display()
+        );
         std::io::Error::new(std::io::ErrorKind::InvalidData, "Malformed config toml")
     })?;
     Ok(config)
