@@ -25,7 +25,7 @@ open = "5.0.0"
 rand = "0.8"
 reqwest = { version = "0.11", features = ["blocking", "json"] }
 strum = { version = "0.25.0", features = ["derive"] }
-keyring = "2.0.5"
+keyring = "2.3.1"
 rpassword = "7"
 sha2 = "0.10"
 data-encoding = "2.5.0"
