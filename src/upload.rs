@@ -2,8 +2,11 @@ use std::io::{Read, Seek};
 use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
+use aws_config::Region;
+use aws_sdk_s3::config::Credentials;
+use aws_sdk_s3::primitives::ByteStream;
 use ignore::WalkBuilder;
-use log::{debug, warn};
+use log::warn;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use symbolic_debuginfo::FileFormat;
@@ -35,8 +38,14 @@ pub fn upload(
             "Upload to HTTP server ({}) not yet implemented!",
             c.url
         )),
-        config::RemoteStorageType::S3(c) => upload_to_s3(c, &files, dryrun),
-        config::RemoteStorageType::B2(c) => upload_to_b2(c, &files, dryrun),
+        config::RemoteStorageType::S3(c) => {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(upload_to_s3(c, &files, dryrun))
+        }
+        config::RemoteStorageType::B2(c) => {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(upload_to_b2(c, &files, dryrun))
+        }
         config::RemoteStorageType::SymbolServer(c) => upload_to_symbolserver(c, &files, dryrun),
         config::RemoteStorageType::Path(c) => copy_to_folder(c, &files, dryrun),
     }
@@ -119,7 +128,8 @@ async fn upload_to_s3_helper(
     prefix: &str,
     files: &[FileInfo],
     dryrun: bool,
-    bucket: s3::bucket::Bucket,
+    client: aws_sdk_s3::Client,
+    bucket: &String,
 ) -> Result<()> {
     for file in files {
         let key = file.key();
@@ -127,62 +137,80 @@ async fn upload_to_s3_helper(
         println!(
             "uploading '{}' to s3 bucket '{}' with key '{}'",
             file.path.display(),
-            bucket.name,
+            bucket,
             full_key
         );
         if !dryrun {
-            let mut reader = tokio::fs::File::open(&file.path).await?;
-            let (_head_object_result, code) = bucket.head_object(&full_key).await?;
-            debug!("Head Object for {} returned {}", full_key, code);
-            if code != 200 {
-                bucket
-                    .put_object_stream(&mut reader, &full_key)
-                    .await
-                    .context(format!("Failed to upload '{}' to S3", file.path.display()))?;
-            } else {
+            if client
+                .head_object()
+                .bucket(bucket)
+                .key(&full_key)
+                .send()
+                .await
+                .is_ok()
+            {
                 warn!(
                     "Skipping {} -> {} since the key already exists on server",
                     file.path.display(),
                     full_key
                 );
+                continue;
             }
+            let body = ByteStream::from_path(&file.path).await?;
+            client
+                .put_object()
+                .bucket(bucket)
+                .key(&full_key)
+                .body(body)
+                .send()
+                .await
+                .context(format!("Failed to upload '{}' to S3", file.path.display()))?;
         }
     }
 
     Ok(())
 }
 
-fn upload_to_s3(config: &config::S3Config, files: &[FileInfo], dryrun: bool) -> Result<()> {
-    let creds = s3::creds::Credentials::new(None, None, None, None, config.profile.as_deref())?;
-    let region = config.region.parse()?;
-    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
-
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(upload_to_s3_helper(&config.prefix, files, dryrun, bucket))
+async fn upload_to_s3(config: &config::S3Config, files: &[FileInfo], dryrun: bool) -> Result<()> {
+    let builder = aws_config::profile::ProfileFileCredentialsProvider::builder();
+    let builder = if let Some(profile) = &config.profile {
+        builder.profile_name(profile)
+    } else {
+        builder
+    };
+    let provider = builder.build();
+    let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+        .credentials_provider(provider)
+        .region(Region::new(config.region.clone()))
+        .load()
+        .await;
+    let client = aws_sdk_s3::Client::new(&sdk_config);
+    upload_to_s3_helper(&config.prefix, files, dryrun, client, &config.bucket).await
 }
 
-fn upload_to_b2(config: &config::B2Config, files: &[FileInfo], dryrun: bool) -> Result<()> {
+async fn upload_to_b2(config: &config::B2Config, files: &[FileInfo], dryrun: bool) -> Result<()> {
     let b2_creds = match &config.account_id {
         Some(id) => b2creds::Credentials::from_file(None, Some(id))?,
         None => b2creds::Credentials::locate()?,
     };
 
-    let creds = s3::creds::Credentials::new(
-        Some(&b2_creds.application_key_id),
-        Some(&b2_creds.application_key),
+    let creds = Credentials::new(
+        &b2_creds.application_key_id,
+        &b2_creds.application_key,
         None,
         None,
-        None,
-    )?;
-    let region = s3::region::Region::Custom {
-        region: "b2".to_owned(),
-        endpoint: config.endpoint.clone(),
-    };
+        "b2",
+    );
 
-    let bucket = s3::bucket::Bucket::new(&config.bucket, region, creds)?;
+    let sdk_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+        .credentials_provider(creds)
+        .region("b2")
+        .endpoint_url(config.endpoint.clone())
+        .load()
+        .await;
+    let client = aws_sdk_s3::Client::new(&sdk_config);
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(upload_to_s3_helper("", files, dryrun, bucket))
+    upload_to_s3_helper(&config.prefix, files, dryrun, client, &config.bucket).await
 }
 
 fn upload_to_symbolserver(
