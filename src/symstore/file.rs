@@ -7,8 +7,6 @@ use std::path::{Path, PathBuf};
 
 use symbolic_debuginfo::Object;
 
-use crate::symstore::SymStoreErr;
-
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Serialize)]
 pub enum FileType {
     Pe,
@@ -70,38 +68,38 @@ impl FileInfo {
     }
 }
 
-pub fn file_to_info(path: &std::path::Path) -> Result<Option<FileInfo>, SymStoreErr> {
+pub fn file_to_info(path: &std::path::Path) -> Result<Option<FileInfo>, std::io::Error> {
     trace!("Inspecting file {}", path.display());
-    if !path.is_file() {
-        return Err(SymStoreErr::NotAFile);
-    }
+    let mut file = File::open(path).map_err(|err| {
+        warn!("Unable to open file {}", path.display());
+        warn!("Error: {}", err);
+        err
+    })?;
 
-    let mut file = match File::open(path) {
-        Ok(file) => file,
-        Err(err) => {
-            warn!("Unable to open file {}", path.display());
+    let filesize: usize = file
+        .metadata()
+        .map_err(|err| {
+            warn!("Unable to get metadata for file {}", path.display());
             warn!("Error: {}", err);
-            return Err(SymStoreErr::IoErr(err));
-        }
-    };
-
-    let filesize: usize = file.metadata().unwrap().len().try_into().unwrap();
+            err
+        })?
+        .len()
+        .try_into()
+        .unwrap();
 
     let mut buffer = Vec::with_capacity(filesize);
 
-    match file.read_to_end(&mut buffer) {
-        Ok(_) => (),
-        Err(err) => {
-            warn!("Unable to read to end of file {}", path.display());
-            warn!("Error: {}", err);
-            return Err(SymStoreErr::IoErr(err));
-        }
-    };
+    file.read_to_end(&mut buffer).map_err(|err| {
+        warn!("Unable to read to end of file {}", path.display());
+        warn!("Error: {}", err);
+        err
+    })?;
 
     let result = match Object::parse(&buffer) {
         Ok(obj) => object_to_info(path, filesize, &obj),
-        Err(_err) => {
+        Err(err) => {
             info!("Failed to parse file {}", path.display());
+            info!("Error: {:?}", err);
             None
         }
     };
