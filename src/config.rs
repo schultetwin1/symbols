@@ -6,14 +6,6 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-    #[serde(
-        default = "default_cache_dir",
-        alias = "cachedir",
-        alias = "cache",
-        alias = "Cache"
-    )]
-    pub cache_dir: Option<path::PathBuf>,
-
     #[serde(default = "default_servers")]
     pub servers: std::vec::Vec<RemoteStorage>,
 }
@@ -96,7 +88,6 @@ pub enum RemoteStorageType {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            cache_dir: default_cache_dir(),
             servers: default_servers(),
         }
     }
@@ -140,11 +131,6 @@ pub fn read_config(path: &path::Path) -> std::io::Result<Config> {
         std::io::Error::new(std::io::ErrorKind::InvalidData, "Malformed config toml")
     })?;
     Ok(config)
-}
-
-fn default_cache_dir() -> Option<path::PathBuf> {
-    let dirs = directories::ProjectDirs::from("", "", "symbols")?;
-    Some(dirs.cache_dir().to_owned())
 }
 
 fn default_servers() -> std::vec::Vec<RemoteStorage> {
