@@ -69,6 +69,12 @@ fn is_object_file(path: &Path) -> std::io::Result<FileFormat> {
 }
 
 fn find_obj_files(search_path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
+    let search_path = if search_path.to_str() == Some("<self>") {
+        std::env::current_exe().context("Failed to get current executable path")?
+    } else {
+        search_path.to_path_buf()
+    };
+
     if !search_path.exists() {
         return Err(anyhow!(
             "Path \"{}\" doest not exists",
@@ -91,7 +97,7 @@ fn find_obj_files(search_path: &Path, recursive: bool) -> Result<Vec<PathBuf>> {
             .map(|x| x.into_path())
             .collect::<Vec<std::path::PathBuf>>()
     } else {
-        if is_object_file(search_path).unwrap_or(FileFormat::Unknown) == FileFormat::Unknown {
+        if is_object_file(&search_path).unwrap_or(FileFormat::Unknown) == FileFormat::Unknown {
             return Err(anyhow!(
                 "Path \"{}\" is not a valid object file",
                 search_path.display()
