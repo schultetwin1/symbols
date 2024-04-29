@@ -27,7 +27,7 @@ strum = { version = "0.26.1", features = ["derive"] }
 keyring = "2.3.2"
 rpassword = "7"
 sha2 = "0.10"
-data-encoding = "2.5.0"
+data-encoding = "2.6.0"
 aws-config = "1.1.10"
 aws-sdk-s3 = "1.22.0"
 
