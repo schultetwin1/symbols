@@ -356,7 +356,7 @@ fn upload_to_symbolserver(
 
 fn copy_to_folder(config: &config::PathConfig, files: &[FileInfo], dryrun: bool) -> Result<()> {
     for file in files {
-        let dest = config.path.join(&file.key());
+        let dest = config.path.join(file.key());
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent).context(format!(
                 "Failed to create destination folder '{}'",
