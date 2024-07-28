@@ -29,7 +29,7 @@ rpassword = "7"
 sha2 = "0.10"
 data-encoding = "2.5.0"
 aws-config = "1.5.4"
-aws-sdk-s3 = "1.40.0"
+aws-sdk-s3 = "1.42.0"
 
 [dependencies.rusqlite]
 version = "0.29.0"
