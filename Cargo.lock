@@ -874,12 +874,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dmsort"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0bc8fbe9441c17c9f46f75dfe27fa1ddb6c68a461ccaed0481419219d4f10d3"
-
-[[package]]
 name = "ecdsa"
 version = "0.14.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2673,9 +2667,9 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "symbolic-common"
-version = "12.11.0"
+version = "12.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c1db5ac243c7d7f8439eb3b8f0357888b37cf3732957e91383b0ad61756374e"
+checksum = "9fdf97c441f18a4f92425b896a4ec7a27e03631a0b1047ec4e34e9916a9a167e"
 dependencies = [
  "debugid",
  "memmap2",
@@ -2685,12 +2679,11 @@ dependencies = [
 
 [[package]]
 name = "symbolic-debuginfo"
-version = "12.11.0"
+version = "12.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1039f8255e7b3c55f7259cf8cf6819664d32bae97127cc6d189c3fdd98ccb80"
+checksum = "fa99c4991caf52367d9b59d1974168ac1f237ef0ec681c464eaf58337075ee4b"
 dependencies = [
  "debugid",
- "dmsort",
  "elementtree",
  "elsa",
  "fallible-iterator 0.3.0",
@@ -2718,9 +2711,9 @@ dependencies = [
 
 [[package]]
 name = "symbolic-ppdb"
-version = "12.11.0"
+version = "12.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f877b26bd3185d90f5bc45a3a6951f63923482b52bb342a7f44eed63adb8ca7"
+checksum = "1aadd15c4048f2ba1359052b6a9cec77b26b7e6e39b8afab4efd024693253113"
 dependencies = [
  "flate2",
  "indexmap",
