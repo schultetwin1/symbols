@@ -1691,9 +1691,12 @@ dependencies = [
 
 [[package]]
 name = "keyring"
-version = "3.3.0"
+version = "3.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fa83d1ca02db069b5fbe94b23b584d588e989218310c9c15015bb5571ef1a94"
+checksum = "2f8fe839464d4e4b37d756d7e910063696af79a7e877282cb1825e4ec5f10833"
+dependencies = [
+ "log",
+]
 
 [[package]]
 name = "lazy_static"
