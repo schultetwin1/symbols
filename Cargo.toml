@@ -28,7 +28,7 @@ keyring = "3.6.1"
 rpassword = "7"
 sha2 = "0.10"
 data-encoding = "2.5.0"
-aws-config = "1.5.10"
+aws-config = "1.5.11"
 aws-sdk-s3 = "1.57.0"
 
 [dependencies.rusqlite]
