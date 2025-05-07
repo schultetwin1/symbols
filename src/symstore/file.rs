@@ -72,7 +72,7 @@ pub fn file_to_info(path: &std::path::Path) -> Result<Option<FileInfo>, std::io:
     trace!("Inspecting file {}", path.display());
     let mut file = File::open(path).map_err(|err| {
         warn!("Unable to open file {}", path.display());
-        warn!("Error: {}", err);
+        warn!("Error: {err}");
         err
     })?;
 
@@ -80,7 +80,7 @@ pub fn file_to_info(path: &std::path::Path) -> Result<Option<FileInfo>, std::io:
         .metadata()
         .map_err(|err| {
             warn!("Unable to get metadata for file {}", path.display());
-            warn!("Error: {}", err);
+            warn!("Error: {err}");
             err
         })?
         .len()
@@ -91,7 +91,7 @@ pub fn file_to_info(path: &std::path::Path) -> Result<Option<FileInfo>, std::io:
 
     file.read_to_end(&mut buffer).map_err(|err| {
         warn!("Unable to read to end of file {}", path.display());
-        warn!("Error: {}", err);
+        warn!("Error: {err}");
         err
     })?;
 
@@ -99,7 +99,7 @@ pub fn file_to_info(path: &std::path::Path) -> Result<Option<FileInfo>, std::io:
         Ok(obj) => object_to_info(path, filesize, &obj),
         Err(err) => {
             info!("Failed to parse file {}", path.display());
-            info!("Error: {:?}", err);
+            info!("Error: {err:?}");
             None
         }
     };

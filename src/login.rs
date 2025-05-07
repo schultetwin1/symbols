@@ -149,7 +149,7 @@ fn request_device_and_user_verification_codes(
 
 fn prompt_user_to_copy_code(code: &str) -> Result<()> {
     println!("Attempting to authenticate with GitHub...");
-    println!("  1. Copy your one time code: {}", code);
+    println!("  1. Copy your one time code: {code}");
     print!("  2. Press ENTER to open up web browser to paste code...");
     std::io::stdout().flush()?;
     std::io::stdin().read_line(&mut String::new())?;
@@ -162,8 +162,8 @@ fn open_browser(url: &str) {
             println!("Opened GitHub Login in web browser");
         }
         Err(e) => {
-            println!("Error opening web browser: {}", e);
-            println!("Please click here to manually open web browser: {}", url);
+            println!("Error opening web browser: {e}");
+            println!("Please click here to manually open web browser: {url}");
         }
     }
 }
